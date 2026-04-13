@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { extractExercisesFromImage, transformExercise } from '@/lib/groq'
+import { extractAndTransformPage } from '@/lib/groq'
 
 // Accepts base64 page images rendered client-side via pdf.js in the browser.
 // Body: { uploadId: string, pageImages: Array<{ pageNum: number, base64: string }> }
@@ -15,55 +15,41 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Update page count
     await supabaseAdmin
       .from('pdf_uploads')
       .update({ page_count: pageImages.length })
       .eq('id', uploadId)
 
+    // Process ALL pages in parallel - 1 Groq call per page (extract + transform combined)
+    const pageResults = await Promise.allSettled(
+      pageImages.map(({ pageNum, base64 }: { pageNum: number; base64: string }) =>
+        extractAndTransformPage(base64).then((result) => ({ pageNum, result }))
+      )
+    )
+
     const exercisesToInsert: any[] = []
 
-    for (const { pageNum, base64 } of pageImages) {
-      try {
-        const extracted = await extractExercisesFromImage(base64)
-
-        for (const exercise of extracted.exercises) {
-          try {
-            const transformed = await transformExercise(exercise)
-            exercisesToInsert.push({
-              pdf_upload_id: uploadId,
-              page_number: pageNum,
-              exercise_number: exercise.exercise_number,
-              block: extracted.block,
-              lesson: extracted.lesson,
-              question_type: exercise.question_type,
-              difficulty_level: transformed.difficulty_level,
-              topic: 'Getallen splitsen en samenvoegen',
-              learning_goal: extracted.learning_goal,
-              original_content: exercise,
-              transformed_content: transformed,
-              status: 'pending',
-            })
-          } catch (transformErr) {
-            console.error(`Transform error for exercise ${exercise.exercise_number}:`, transformErr)
-            exercisesToInsert.push({
-              pdf_upload_id: uploadId,
-              page_number: pageNum,
-              exercise_number: exercise.exercise_number,
-              block: extracted.block,
-              lesson: extracted.lesson,
-              question_type: exercise.question_type,
-              difficulty_level: 1,
-              topic: 'Getallen splitsen en samenvoegen',
-              learning_goal: extracted.learning_goal,
-              original_content: exercise,
-              transformed_content: null,
-              status: 'pending',
-            })
-          }
-        }
-      } catch (pageErr) {
-        console.error(`Error processing page ${pageNum}:`, pageErr)
+    for (const settled of pageResults) {
+      if (settled.status === 'rejected') {
+        console.error('Page processing failed:', settled.reason)
+        continue
+      }
+      const { pageNum, result } = settled.value
+      for (const exercise of result.exercises) {
+        exercisesToInsert.push({
+          pdf_upload_id: uploadId,
+          page_number: pageNum,
+          exercise_number: exercise.exercise_number,
+          block: result.block,
+          lesson: result.lesson,
+          question_type: exercise.question_type,
+          difficulty_level: exercise.transformed_content?.difficulty_level ?? 1,
+          topic: 'Getallen splitsen en samenvoegen',
+          learning_goal: result.learning_goal,
+          original_content: exercise,
+          transformed_content: exercise.transformed_content ?? null,
+          status: 'pending',
+        })
       }
     }
 
@@ -74,23 +60,14 @@ export async function POST(req: NextRequest) {
 
       if (insertError) {
         console.error('Insert error:', insertError)
-        await supabaseAdmin
-          .from('pdf_uploads')
-          .update({ status: 'failed' })
-          .eq('id', uploadId)
+        await supabaseAdmin.from('pdf_uploads').update({ status: 'failed' }).eq('id', uploadId)
         return NextResponse.json({ error: 'Opslaan mislukt' }, { status: 500 })
       }
     }
 
-    await supabaseAdmin
-      .from('pdf_uploads')
-      .update({ status: 'completed' })
-      .eq('id', uploadId)
+    await supabaseAdmin.from('pdf_uploads').update({ status: 'completed' }).eq('id', uploadId)
 
-    return NextResponse.json({
-      success: true,
-      exercisesExtracted: exercisesToInsert.length,
-    })
+    return NextResponse.json({ success: true, exercisesExtracted: exercisesToInsert.length })
   } catch (err) {
     console.error('Extraction error:', err)
     return NextResponse.json({ error: 'Extractie mislukt' }, { status: 500 })

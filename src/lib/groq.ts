@@ -1,61 +1,65 @@
 import Groq from 'groq-sdk'
-import type {
-  ExtractedExercise,
-  TransformedExercise,
-  QuestionType,
-  DifficultyLevel,
-  FillInExercise,
-  StructuredHTEExercise,
-  CreativeExercise,
-  PatternPuzzleExercise,
-  HTENumber,
-} from './types'
+import type { ExtractedExercise, TransformedExercise, DifficultyLevel } from './types'
 
 export const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
-const EXTRACT_SYSTEM_PROMPT = `You are an expert at analyzing Dutch elementary school math workbook pages.
-Your task is to extract all exercises from the page image and return structured JSON.
+// Single prompt that does BOTH extraction AND transformation in one API call per page
+const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert at analyzing Dutch elementary school math workbook pages.
 
-For each exercise found, identify:
-- exercise_number: The exercise number (e.g. "1", "2", "#6")
-- question_type: One of "fill_in", "structured_hte", "creative", "pattern_puzzle"
-  - fill_in: Student must complete an equation like "763 = ___ + ___ + ___"
-  - structured_hte: Exercises with H (hundreds), T (tens), E (ones) grid boxes for splitting or combining numbers
-  - creative: Student must create their own number combinations from given digits
-  - pattern_puzzle: Student must figure out the value of symbols/shapes
-- instruction: The Dutch instruction text (e.g. "Splits. Schrijf de som op.")
-- given_numbers: Array of numbers shown in the exercise (for fill_in/structured_hte)
-- available_digits: Array of digits shown (for creative exercises)
-- shapes: Array of shape names used (for pattern_puzzle)
-- known_total: The total shown in the puzzle (for pattern_puzzle)
-- raw_text: All visible text in the exercise
+Analyze this page image and return ALL exercises fully extracted AND transformed for interactive use in ONE response.
 
-Also extract page-level metadata:
-- block: Block number (e.g. "1")
-- lesson: Lesson number (e.g. "1", "2")
-- learning_goal: The "Lesdoel" text if visible
+For each exercise identify:
+- exercise_number: e.g. "1", "2", "#6"
+- question_type: "fill_in" | "structured_hte" | "creative" | "pattern_puzzle"
+  - fill_in: equation like "763 = ___ + ___ + ___"
+  - structured_hte: H (hundreds) T (tens) E (ones) grid boxes
+  - creative: make combinations from given digits
+  - pattern_puzzle: figure out shape values
+- instruction: the Dutch instruction text
+- given_numbers: numbers shown (fill_in / structured_hte)
+- available_digits: digits shown (creative)
+- raw_text: all text in the exercise
 
-Return ONLY valid JSON in this exact format:
+Also extract page metadata: block, lesson, learning_goal (Lesdoel text).
+
+For transformed_content, populate ONLY the field matching the question_type:
+- fill_in: { number, answer: [H*100, T*10, E], labels: ["H","T","E"] }
+- structured_hte: { mode: "split"|"combine", numbers: [{H,T,E},...] }
+- creative: { digits: [...], num_combinations: N, valid_combinations: [{H,T,E},...] }
+- pattern_puzzle: { shapes: [{name,value},...], groups: [{counts:{shape:N},total,is_known},...] }
+
+Set difficulty_level: 1 = numbers 100-499, 2 = 500-799, 3 = 800-999.
+
+Return ONLY valid JSON:
 {
   "block": "1",
   "lesson": "1",
-  "learning_goal": "Ik kan getallen tot en met 1000 splitsen en samenvoegen.",
+  "learning_goal": "...",
   "exercises": [
     {
       "exercise_number": "1",
       "question_type": "structured_hte",
       "instruction": "Splits. Schrijf de som op.",
       "given_numbers": [763, 954],
-      "raw_text": "..."
+      "raw_text": "...",
+      "transformed_content": {
+        "question_type": "structured_hte",
+        "instruction": "Splits. Schrijf de som op.",
+        "difficulty_level": 2,
+        "fill_in": null,
+        "structured_hte": { "mode": "split", "numbers": [{"H":7,"T":6,"E":3},{"H":9,"T":5,"E":4}] },
+        "creative": null,
+        "pattern_puzzle": null
+      }
     }
   ]
 }`
 
-export async function extractExercisesFromImage(base64Image: string): Promise<{
+export async function extractAndTransformPage(base64Image: string): Promise<{
   block: string
   lesson: string
   learning_goal: string
-  exercises: ExtractedExercise[]
+  exercises: Array<ExtractedExercise & { transformed_content: TransformedExercise }>
 }> {
   const response = await groq.chat.completions.create({
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
@@ -63,68 +67,27 @@ export async function extractExercisesFromImage(base64Image: string): Promise<{
       {
         role: 'user',
         content: [
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:image/png;base64,${base64Image}`,
-            },
-          },
-          {
-            type: 'text',
-            text: EXTRACT_SYSTEM_PROMPT,
-          },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${base64Image}` } },
+          { type: 'text', text: EXTRACT_AND_TRANSFORM_PROMPT },
         ],
       },
     ],
     response_format: { type: 'json_object' },
-    max_tokens: 4096,
+    max_tokens: 8192,
   })
 
   const content = response.choices[0]?.message?.content
   if (!content) throw new Error('No response from Groq')
-
   return JSON.parse(content)
 }
 
-export async function transformExercise(
-  extracted: ExtractedExercise
-): Promise<TransformedExercise> {
-  const prompt = `Transform this Dutch elementary school math exercise into an interactive format.
-
-Exercise data: ${JSON.stringify(extracted, null, 2)}
-
-Based on the question_type, generate the appropriate transformed structure:
-
-For "fill_in": Extract the number and its components (hundreds, tens, ones).
-For "structured_hte": Create a list of H/T/E number objects with mode "split" or "combine".
-For "creative": List the available digits and number of combinations required.
-For "pattern_puzzle": List the shapes and their groups with totals.
-
-Return ONLY valid JSON matching the TransformedExercise type:
-{
-  "question_type": "${extracted.question_type}",
-  "instruction": "${extracted.instruction}",
-  "difficulty_level": 1,
-  "fill_in": { ... } | null,
-  "structured_hte": { ... } | null,
-  "creative": { ... } | null,
-  "pattern_puzzle": { ... } | null
+// Keep these for backwards compatibility
+export async function extractExercisesFromImage(base64Image: string) {
+  return extractAndTransformPage(base64Image)
 }
 
-Set difficulty_level to 1 (numbers under 500), 2 (numbers 500-799), or 3 (numbers 800+).
-Only populate the field matching the question_type, set others to null.`
-
-  const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    messages: [{ role: 'user', content: prompt }],
-    response_format: { type: 'json_object' },
-    max_tokens: 2048,
-  })
-
-  const content = response.choices[0]?.message?.content
-  if (!content) throw new Error('No response from Groq')
-
-  return JSON.parse(content)
+export async function transformExercise(extracted: ExtractedExercise): Promise<TransformedExercise> {
+  return (extracted as any).transformed_content
 }
 
 export async function generateVariant(
