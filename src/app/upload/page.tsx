@@ -6,10 +6,38 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react'
 import clsx from 'clsx'
 
+// Convert each PDF page to a base64 PNG using pdf.js in the browser
+async function pdfToPageImages(file: File): Promise<Array<{ pageNum: number; base64: string }>> {
+  const pdfjsLib = await import('pdfjs-dist')
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const images: Array<{ pageNum: number; base64: string }> = []
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const viewport = page.getViewport({ scale: 2.0 })
+
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')!
+
+    await page.render({ canvasContext: ctx, viewport }).promise
+
+    const base64 = canvas.toDataURL('image/png').split(',')[1]
+    images.push({ pageNum: i, base64 })
+  }
+
+  return images
+}
+
 export default function UploadPage() {
   const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadStep, setUploadStep] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -33,24 +61,45 @@ export default function UploadPage() {
     setError(null)
 
     try {
+      // Step 1: Upload PDF to Supabase Storage
+      setUploadStep('PDF uploaden...')
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch('/api/upload', {
+      const uploadRes = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       })
 
-      if (!res.ok) {
-        const data = await res.json()
+      if (!uploadRes.ok) {
+        const data = await uploadRes.json()
         throw new Error(data.error || 'Upload mislukt')
       }
 
-      const { uploadId } = await res.json()
+      const { uploadId } = await uploadRes.json()
+
+      // Step 2: Convert PDF pages to images in the browser
+      setUploadStep('PDF pagina\'s verwerken...')
+      const pageImages = await pdfToPageImages(file)
+
+      // Step 3: Send images to the extraction API
+      setUploadStep('AI extraheert oefeningen...')
+      const extractRes = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadId, pageImages }),
+      })
+
+      if (!extractRes.ok) {
+        const data = await extractRes.json()
+        throw new Error(data.error || 'Extractie mislukt')
+      }
+
       router.push(`/review/${uploadId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Er is iets misgegaan')
       setUploading(false)
+      setUploadStep('')
     }
   }
 
@@ -126,7 +175,7 @@ export default function UploadPage() {
         {uploading ? (
           <>
             <Loader2 size={18} className="animate-spin" />
-            Uploaden en verwerken...
+            {uploadStep || 'Bezig...'}
           </>
         ) : (
           <>

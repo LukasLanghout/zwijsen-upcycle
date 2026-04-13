@@ -54,15 +54,9 @@ export async function POST(req: NextRequest) {
       .update({ storage_path: storagePath })
       .eq('id', uploadRecord.id)
 
-    // Trigger extraction in the background
-    // (fire-and-forget - the review page will poll for results)
-    fetch(`${req.nextUrl.origin}/api/extract`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uploadId: uploadRecord.id, storagePath }),
-    }).catch(console.error)
-
-    return NextResponse.json({ uploadId: uploadRecord.id })
+    // Return uploadId + storagePath so client can do PDF-to-image conversion
+    // and send images to /api/extract directly (avoids server-side canvas dependency)
+    return NextResponse.json({ uploadId: uploadRecord.id, storagePath })
   } catch (err) {
     console.error('Upload error:', err)
     return NextResponse.json({ error: 'Onverwachte fout' }, { status: 500 })
