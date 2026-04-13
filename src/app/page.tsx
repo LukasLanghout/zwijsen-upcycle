@@ -1,15 +1,13 @@
 import Link from 'next/link'
-import { Upload, Library, CheckCircle, Zap, BookOpen } from 'lucide-react'
+import { Upload, Library, Zap } from 'lucide-react'
 import { supabaseAdmin } from '@/lib/supabase'
+import ResetButton from '@/components/ResetButton'
 
 async function getStats() {
   const [uploadsRes, exercisesRes, approvedRes] = await Promise.all([
     supabaseAdmin.from('pdf_uploads').select('id', { count: 'exact' }),
     supabaseAdmin.from('exercises').select('id', { count: 'exact' }),
-    supabaseAdmin
-      .from('exercises')
-      .select('id', { count: 'exact' })
-      .eq('status', 'approved'),
+    supabaseAdmin.from('exercises').select('id', { count: 'exact' }).eq('status', 'approved'),
   ])
 
   return {
@@ -26,7 +24,7 @@ export default async function DashboardPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Hero */}
       <div className="text-center mb-12">
-        <div className="inline-flex items-center gap-2 bg-zwijsen-blue-light text-zwijsen-blue px-4 py-2 rounded-full text-sm font-medium mb-4">
+        <div className="inline-flex items-center gap-2 bg-[#F3D6EB] text-[#A81D7B] px-4 py-2 rounded-full text-sm font-semibold mb-4">
           <Zap size={14} />
           Proof of Concept
         </div>
@@ -42,15 +40,15 @@ export default async function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-6 mb-12">
         <div className="card p-6 text-center">
-          <div className="text-3xl font-bold text-zwijsen-blue mb-1">{stats.uploads}</div>
+          <div className="text-3xl font-bold text-[#A81D7B] mb-1">{stats.uploads}</div>
           <div className="text-sm text-gray-500">PDF&apos;s geüpload</div>
         </div>
         <div className="card p-6 text-center">
-          <div className="text-3xl font-bold text-zwijsen-blue mb-1">{stats.exercises}</div>
+          <div className="text-3xl font-bold text-[#A81D7B] mb-1">{stats.exercises}</div>
           <div className="text-sm text-gray-500">Oefeningen geëxtraheerd</div>
         </div>
         <div className="card p-6 text-center">
-          <div className="text-3xl font-bold text-zwijsen-green mb-1">{stats.approved}</div>
+          <div className="text-3xl font-bold text-[#5BAD6F] mb-1">{stats.approved}</div>
           <div className="text-sm text-gray-500">Oefeningen goedgekeurd</div>
         </div>
       </div>
@@ -60,7 +58,7 @@ export default async function DashboardPage() {
         <h2 className="text-xl font-bold text-gray-900 mb-6">Hoe werkt het?</h2>
         <div className="grid grid-cols-4 gap-4">
           {[
-            { step: '1', title: 'Upload PDF', desc: 'Upload een werkboekpagina als PDF', color: 'bg-blue-100 text-blue-700' },
+            { step: '1', title: 'Upload PDF', desc: 'Upload een werkboekpagina als PDF', color: 'bg-[#F3D6EB] text-[#A81D7B]' },
             { step: '2', title: 'AI Extractie', desc: 'AI herkent en structureert alle oefeningen', color: 'bg-purple-100 text-purple-700' },
             { step: '3', title: 'Controleer', desc: 'Bekijk en corrigeer de AI-output zij aan zij', color: 'bg-orange-100 text-orange-700' },
             { step: '4', title: 'Gebruik', desc: 'Goedgekeurde oefeningen zijn interactief speelbaar', color: 'bg-green-100 text-green-700' },
@@ -79,10 +77,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* CTAs */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-6 mb-8">
         <Link href="/upload" className="card p-8 hover:shadow-md transition-shadow group">
           <div className="flex items-center gap-4 mb-4">
-            <div className="bg-zwijsen-blue text-white p-3 rounded-xl group-hover:scale-110 transition-transform">
+            <div className="bg-[#A81D7B] text-white p-3 rounded-2xl group-hover:scale-110 transition-transform">
               <Upload size={24} />
             </div>
             <h3 className="text-xl font-bold text-gray-900">Nieuwe PDF uploaden</h3>
@@ -95,7 +93,7 @@ export default async function DashboardPage() {
 
         <Link href="/library" className="card p-8 hover:shadow-md transition-shadow group">
           <div className="flex items-center gap-4 mb-4">
-            <div className="bg-zwijsen-green text-white p-3 rounded-xl group-hover:scale-110 transition-transform">
+            <div className="bg-[#5BAD6F] text-white p-3 rounded-2xl group-hover:scale-110 transition-transform">
               <Library size={24} />
             </div>
             <h3 className="text-xl font-bold text-gray-900">Bibliotheek bekijken</h3>
@@ -105,6 +103,19 @@ export default async function DashboardPage() {
             genereer nieuwe varianten.
           </p>
         </Link>
+      </div>
+
+      {/* Danger zone */}
+      <div className="card border-red-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Alles verwijderen</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Verwijdert alle uploads, oefeningen en varianten. Dit kan niet ongedaan worden gemaakt.
+            </p>
+          </div>
+          <ResetButton />
+        </div>
       </div>
     </div>
   )
