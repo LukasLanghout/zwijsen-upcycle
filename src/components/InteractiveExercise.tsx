@@ -46,15 +46,24 @@ function FillInExerciseView({ data }: { data: FillInExercise }) {
   const check = () => setChecked(true)
   const reset = () => { setAnswers(data.answer.map(() => '')); setChecked(false) }
 
-  const isCorrect = (i: number) =>
-    parseInt(answers[i]) === data.answer[i]
+  // Check per vak: accepteer zowel de plaatswaarde (700) als het cijfer (7) voor H
+  const placeValues = [100, 10, 1]
+  const isCorrect = (i: number) => {
+    const entered = parseInt(answers[i])
+    const stored = data.answer[i]
+    // Exacte match (700) of cijfer-match (7) op de juiste positie
+    return entered === stored || entered === stored * placeValues[i]
+  }
 
-  const allCorrect = data.answer.every((_, i) => isCorrect(i))
+  // Hoofdcheck: som van ingevulde waarden moet gelijk zijn aan het getal
+  const allCorrect =
+    answers.every((a) => a !== '') &&
+    answers.reduce((sum, a) => sum + parseInt(a || '0'), 0) === data.number
 
   return (
     <div>
       <div className="flex items-center gap-2 text-2xl font-bold flex-wrap">
-        <span className="bg-zwijsen-blue-light text-zwijsen-blue px-3 py-1 rounded">
+        <span className="bg-[#F3D6EB] text-[#A81D7B] px-3 py-1 rounded-xl font-bold">
           {data.number}
         </span>
         <span>=</span>
@@ -126,16 +135,23 @@ function HTERow({ number, mode }: { number: HTENumber; mode: 'split' | 'combine'
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [checked, setChecked] = useState(false)
 
-  const targets = isSplit
-    ? { H: number.H, T: number.T, E: number.E }
-    : { total: fullNumber }
-
   const expectedKeys = isSplit ? ['H', 'T', 'E'] : ['total']
 
-  const isCorrect = (key: string) =>
-    parseInt(answers[key] || '') === (targets as unknown as Record<string, number>)[key]
+  const isCorrect = (key: string) => {
+    const entered = parseInt(answers[key] || '')
+    if (!isSplit) return entered === fullNumber
+    // Voor split: accepteer plaatswaarde (700) of cijfer (7)
+    if (key === 'H') return entered === number.H * 100 || entered === number.H
+    if (key === 'T') return entered === number.T * 10  || entered === number.T
+    if (key === 'E') return entered === number.E
+    return false
+  }
 
-  const allCorrect = expectedKeys.every(isCorrect)
+  // Hoofdcheck voor split: som van ingevulde waarden == volledig getal
+  const allCorrect = isSplit
+    ? expectedKeys.every((k) => answers[k] !== '') &&
+      (parseInt(answers['H'] || '0') + parseInt(answers['T'] || '0') + parseInt(answers['E'] || '0')) === fullNumber
+    : isCorrect('total')
 
   const reset = () => { setAnswers({}); setChecked(false) }
 
