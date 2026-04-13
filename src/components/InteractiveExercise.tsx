@@ -133,7 +133,7 @@ function HTERow({ number, mode }: { number: HTENumber; mode: 'split' | 'combine'
   const expectedKeys = isSplit ? ['H', 'T', 'E'] : ['total']
 
   const isCorrect = (key: string) =>
-    parseInt(answers[key] || '') === (targets as Record<string, number>)[key]
+    parseInt(answers[key] || '') === (targets as unknown as Record<string, number>)[key]
 
   const allCorrect = expectedKeys.every(isCorrect)
 
