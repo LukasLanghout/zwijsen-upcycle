@@ -56,6 +56,48 @@ CRITICAL SUB-EXERCISE DETECTION RULES:
    - If you see "Splits" with multiple grids: count the grids (not the word)
    - Each empty box/blank = one sub-exercise, even if layout suggests otherwise
 
+PATTERN PUZZLE DETECTION:
+=========================
+
+Pattern puzzles show shapes (circles, squares, hearts, stars, triangles, etc.) and ask students to:
+- Figure out the value of each shape based on given totals
+- Count shapes in groups and calculate missing totals
+
+VISUAL INDICATORS OF PATTERN PUZZLES:
+- Drawing of different shapes (circles, squares, stars, hearts, etc.)
+- Numbers shown next to shape groups (these are the known totals)
+- Empty boxes or lines for unknown totals that students must calculate
+- Instructions like "Wat is de waarde van...?" (What is the value of...?)
+- "Welk getal hoort hier?" (Which number goes here?)
+- Shape groups with numbers and calculation blanks
+
+PATTERN PUZZLE EXTRACTION RULES:
+- Identify all unique shapes in the exercise (e.g., circle, square, star)
+- For each group of shapes shown:
+  * Count how many of each shape appear in that group
+  * Note if a total is GIVEN (is_known: true) or BLANK (is_known: false)
+- Extract the known values to determine shape values (if solvable)
+- Do NOT try to calculate unknowns - just structure what's visible
+
+PATTERN PUZZLE EXAMPLE:
+Instruction: "Wat is de waarde van elke vorm? Los op."
+Group 1: [3 circles] + [2 squares] = 16
+Group 2: [2 circles] + [3 squares] = 19
+Group 3: [1 circle] + [4 squares] = ?
+
+Transformation structure:
+{
+  "shapes": [
+    {"name": "circle", "value": 2},
+    {"name": "square", "value": 5}
+  ],
+  "groups": [
+    {"counts": {"circle": 3, "square": 2}, "total": 16, "is_known": true},
+    {"counts": {"circle": 2, "square": 3}, "total": 19, "is_known": true},
+    {"counts": {"circle": 1, "square": 4}, "total": null, "is_known": false}
+  ]
+}
+
 MANDATORY OUTPUTS:
 ==================
 For each sub-exercise you identify, output ONE JSON entry with:
@@ -64,7 +106,7 @@ For each sub-exercise you identify, output ONE JSON entry with:
 - sub_exercise_letter: "a", "b", "c", etc.
 - question_type: "fill_in" | "structured_hte" | "creative" | "pattern_puzzle"
 - instruction: the instruction text for this sub-exercise
-- given_numbers: [number] for THIS sub-exercise ONLY (single-element array)
+- given_numbers: [number] for "fill_in"/"structured_hte" (omit for pattern_puzzle/creative)
 - raw_text: all visible text in the sub-exercise
 
 For transformed_content:
@@ -73,7 +115,7 @@ For transformed_content:
 - creative: { digits: [...], num_combinations: N, valid_combinations: [{H,T,E},...] }
 - pattern_puzzle: { shapes: [{name,value},...], groups: [{counts:{shape:N},total,is_known},...] }
 
-Set difficulty_level: 1 = 100-499, 2 = 500-799, 3 = 800-999.
+Set difficulty_level: 1 = 100-499, 2 = 500-799, 3 = 800-999. For pattern_puzzle, use complexity.
 
 PAGE METADATA:
 ==============
@@ -106,21 +148,30 @@ Return ONLY valid JSON:
       }
     },
     {
-      "exercise_number": "1b",
-      "parent_exercise_number": "1",
-      "sub_exercise_letter": "b",
-      "question_type": "structured_hte",
-      "instruction": "Splits. Schrijf de som op.",
-      "given_numbers": [954],
+      "exercise_number": "2a",
+      "parent_exercise_number": "2",
+      "sub_exercise_letter": "a",
+      "question_type": "pattern_puzzle",
+      "instruction": "Wat is de waarde van elke vorm?",
       "raw_text": "...",
       "transformed_content": {
-        "question_type": "structured_hte",
-        "instruction": "Splits. Schrijf de som op.",
-        "difficulty_level": 3,
+        "question_type": "pattern_puzzle",
+        "instruction": "Wat is de waarde van elke vorm?",
+        "difficulty_level": 2,
         "fill_in": null,
-        "structured_hte": { "mode": "split", "numbers": [{"H":9,"T":5,"E":4}] },
+        "structured_hte": null,
         "creative": null,
-        "pattern_puzzle": null
+        "pattern_puzzle": {
+          "shapes": [
+            {"name": "circle", "value": 2},
+            {"name": "square", "value": 5}
+          ],
+          "groups": [
+            {"counts": {"circle": 3, "square": 2}, "total": 16, "is_known": true},
+            {"counts": {"circle": 2, "square": 3}, "total": 19, "is_known": true},
+            {"counts": {"circle": 1, "square": 4}, "total": null, "is_known": false}
+          ]
+        }
       }
     }
   ]
@@ -194,7 +245,13 @@ Rules:
 - For structured_hte: generate new valid 3-digit numbers
 - For fill_in: generate a new valid 3-digit number and its correct components
 - For creative: keep the same number of digits but use different digit values
-- For pattern_puzzle: change the shape values and recalculate totals
+- For pattern_puzzle:
+  * Keep the same shape names and groups structure
+  * Assign new random values to each shape (values must be 1-50 and different from each other)
+  * Recalculate all group totals based on the new shape values
+  * For groups marked as "is_known: true", keep them known with the recalculated total
+  * For groups marked as "is_known: false", keep them as unknown (student must calculate)
+  * Ensure all totals are solvable and mathematically correct
 - Set difficulty_level to ${targetDifficulty}
 - All numbers must be mathematically correct
 
