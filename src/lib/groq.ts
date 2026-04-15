@@ -3,201 +3,94 @@ import type { ExtractedExercise, TransformedExercise, DifficultyLevel } from './
 
 export const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
-// Single prompt that does BOTH extraction AND transformation in one API call per page
-const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert at analyzing Dutch elementary school math workbook pages.
+// IMPROVED prompt focusing on ACCURATE pattern puzzle extraction
+const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert Dutch elementary school math workbook analyzer.
 
-Analyze this page image and return ALL exercises fully extracted AND transformed for interactive use in ONE response.
+🎯 PRIMARY FOCUS: Accurately identify and extract PATTERN PUZZLES
+- These show shapes (hearts, stars, triangles, squares, etc.)
+- Students must count shapes and find their values
+- This is a TOP PRIORITY - extract them correctly!
 
-CRITICAL SUB-EXERCISE DETECTION RULES:
-=====================================
+PATTERN PUZZLE EXTRACTION (CRITICAL!):
+======================================
 
-1. ONE DATABASE ENTRY PER SUB-QUESTION, NOT PER NUMBERED EXERCISE
-   - A numbered exercise (like "1" or "2") may contain MULTIPLE sub-questions
-   - Each sub-question becomes a separate database entry with letters: 1a, 1b, 1c, etc.
-   - This is true even if sub-questions appear on different pages (they get grouped later)
+When you see a pattern puzzle exercise:
+1. COUNT every individual shape carefully
+2. Use ONLY these shape names:
+   ✓ heart, star, triangle, square, circle, diamond, pentagon, hexagon
+   ✗ Never use: hart, ster, driehoek, vierkant, etc. (English only!)
 
-2. VISUAL INDICATORS OF MULTIPLE SUB-QUESTIONS:
-   - Multiple empty boxes/grids below one instruction (each box = one sub-question)
-   - Multiple number values listed (e.g. "763, 954, 502" = three sub-questions)
-   - Repeating instruction text with different numbers
-   - Instructions with different sub-parts or bullet points
+3. For EACH visible group:
+   - List the shapes: e.g., "3 hearts, 2 triangles"
+   - Check if there's a number at the end (known total)
+   - If no number, it's unknown (student must solve)
 
-3. DETAILED EXAMPLES:
+4. Create the JSON structure:
+   {
+     "shapes": [
+       {"name": "heart", "value": 2},
+       {"name": "triangle", "value": 3},
+       {"name": "square", "value": 5}
+     ],
+     "groups": [
+       {"counts": {"heart": 3, "triangle": 2}, "total": 16, "is_known": true},
+       {"counts": {"heart": 2, "square": 3}, "total": 19, "is_known": true},
+       {"counts": {"heart": 1, "square": 4}, "total": null, "is_known": false}
+     ]
+   }
 
-   Example A: Single instruction + 2 grids = 2 sub-exercises
-   "1 Splits. Schrijf de som op."
-   [Grid: 763] [Grid: 954]
-   OUTPUT: "1a" (763) and "1b" (954) - SEPARATE ENTRIES
+⚠️ CRITICAL RULES:
+- Count EVERY shape individually (not combinations)
+- "counts" object must have exact shape counts
+- Only use English shape names (heart, not hart)
+- "is_known": true ONLY if a number appears
+- If no number appears, use "is_known": false and "total": null
 
-   Example B: Single instruction + 4 given numbers = 4 sub-exercises
-   "2 Voeg samen."
-   100 + 200 + 3 = ___
-   200 + 30 + 4 = ___
-   300 + 40 + 5 = ___
-   400 + 50 + 6 = ___
-   OUTPUT: "2a", "2b", "2c", "2d" - SEPARATE ENTRIES
+GENERAL EXERCISE DETECTION:
+============================
 
-   Example C: Complex instruction with multiple parts = 6 sub-exercises
-   "3 Splits. Schrijf de som op." [2 grids]
-      "Voeg samen. Schrijf de som op." [4 given-number fields]
-   OUTPUT: "3a", "3b" (splits), then "3c", "3d", "3e", "3f" (voeg samen)
+Other exercise types:
+- fill_in: "Vul in" exercises with one number to split
+- structured_hte: H-T-E (Hundreds-Tens-Ones) exercises
+- creative: Build numbers from given digits
+- pattern_puzzle: Shape counting (see above)
 
-   Example D: Exercise with only 1 item still gets a letter
-   "4 Maak de som."
-   [1 grid: 500]
-   OUTPUT: "4a" (NOT just "4") - ALWAYS include the letter
-
-4. DETECTING INSTRUCTION GROUPS:
-   - Instructions like "Splits" vs "Voeg samen" may apply to multiple numbers
-   - Read the instruction once, then count how many input/output pairs follow
-   - Each number/grid = one sub-exercise under that instruction
-
-5. HANDLING REPEATED ELEMENTS:
-   - If you see "Splits" with multiple grids: count the grids (not the word)
-   - Each empty box/blank = one sub-exercise, even if layout suggests otherwise
-
-PATTERN PUZZLE DETECTION:
-=========================
-
-Pattern puzzles show shapes (circles, squares, hearts, stars, triangles, etc.) and ask students to:
-- Figure out the value of each shape based on given totals
-- Count shapes in groups and calculate missing totals
-
-VISUAL INDICATORS OF PATTERN PUZZLES:
-- Drawing of different shapes (circles, squares, stars, hearts, etc.)
-- Numbers shown next to shape groups (these are the known totals)
-- Empty boxes or lines for unknown totals that students must calculate
-- Instructions like "Wat is de waarde van...?" (What is the value of...?)
-- "Welk getal hoort hier?" (Which number goes here?)
-- Shape groups with numbers and calculation blanks
-
-PATTERN PUZZLE EXTRACTION RULES:
-- Identify all unique shapes in the exercise (e.g., circle, square, star)
-- For each group of shapes shown:
-  * Count how many of each shape appear in that group
-  * Note if a total is GIVEN (is_known: true) or BLANK (is_known: false)
-- Extract the known values to determine shape values (if solvable)
-- Do NOT try to calculate unknowns - just structure what's visible
-
-PATTERN PUZZLE EXAMPLE:
-Instruction: "Wat is de waarde van elke vorm? Los op."
-Group 1: [3 circles] + [2 squares] = 16
-Group 2: [2 circles] + [3 squares] = 19
-Group 3: [1 circle] + [4 squares] = ?
-
-SHAPE NAME GUIDELINES (CRITICAL):
-- Use EXACT Dutch or English shape names:
-  * circle / cirkel
-  * square / vierkant
-  * triangle / driehoek
-  * heart / hart
-  * star / ster
-  * diamond / ruit
-  * pentagon / vijfhoek
-  * hexagon / zeshoek
-- DO NOT invent new shape names
-- If shapes look like hearts, use "heart" NOT "hartje"
-- If shapes look like stars, use "star" NOT "ster" and "star" NOT "*"
-- Count accurately - each individual shape in the visual
-
-COUNT ACCURACY (CRITICAL):
-- Count EVERY shape visible in the group
-- If you see: ♥ ♥ ♥ △ △ □ □
-  Then: heart: 3, triangle: 2, square: 2
-- Do not estimate - count precisely
-- Empty spaces or light shapes count as real shapes
-
-GROUP STRUCTURE (CRITICAL):
-- "counts" must have EXACT shape counts
-- "total" is the given number at the group (may be blank/unknown)
-- "is_known" is true ONLY if a number appears next to the group
-- If no number visible, "is_known": false and "total": null
-
-Transformation structure:
-{
-  "shapes": [
-    {"name": "circle", "value": 2},
-    {"name": "square", "value": 5}
-  ],
-  "groups": [
-    {"counts": {"circle": 3, "square": 2}, "total": 16, "is_known": true},
-    {"counts": {"circle": 2, "square": 3}, "total": 19, "is_known": true},
-    {"counts": {"circle": 1, "square": 4}, "total": null, "is_known": false}
-  ]
-}
-
-MANDATORY OUTPUTS:
-==================
-For each sub-exercise you identify, output ONE JSON entry with:
-- exercise_number: "1a", "2b", "3c", etc. (ALWAYS include letter)
-- parent_exercise_number: "1", "2", "3", etc. (base number without letter)
-- sub_exercise_letter: "a", "b", "c", etc.
+For each exercise, provide:
+- exercise_number: "1a", "2b", etc. (include letter!)
 - question_type: "fill_in" | "structured_hte" | "creative" | "pattern_puzzle"
-- instruction: the instruction text for this sub-exercise
-- given_numbers: [number] for "fill_in"/"structured_hte" (omit for pattern_puzzle/creative)
-- raw_text: all visible text in the sub-exercise
+- instruction: exact instruction text
+- transformed_content: properly structured data
 
-For transformed_content:
-- fill_in: { number, answer: [H*100, T*10, E], labels: ["H","T","E"] }
-- structured_hte: { mode: "split"|"combine", numbers: [{H,T,E}] } - always 1 element
-- creative: { digits: [...], num_combinations: N, valid_combinations: [{H,T,E},...] }
-- pattern_puzzle: { shapes: [{name,value},...], groups: [{counts:{shape:N},total,is_known},...] }
-
-Set difficulty_level: 1 = 100-499, 2 = 500-799, 3 = 800-999. For pattern_puzzle, use complexity.
-
-PAGE METADATA:
-==============
-Also extract: block, lesson, learning_goal (Lesdoel text)
-
-RETURN FORMAT:
-==============
-Return ONLY valid JSON:
+RETURN ONLY VALID JSON with this structure:
 {
   "block": "1",
   "lesson": "1",
   "learning_goal": "...",
   "exercises": [
     {
-      "exercise_number": "1a",
-      "parent_exercise_number": "1",
-      "sub_exercise_letter": "a",
-      "question_type": "structured_hte",
-      "instruction": "Splits. Schrijf de som op.",
-      "given_numbers": [763],
-      "raw_text": "...",
-      "transformed_content": {
-        "question_type": "structured_hte",
-        "instruction": "Splits. Schrijf de som op.",
-        "difficulty_level": 2,
-        "fill_in": null,
-        "structured_hte": { "mode": "split", "numbers": [{"H":7,"T":6,"E":3}] },
-        "creative": null,
-        "pattern_puzzle": null
-      }
-    },
-    {
-      "exercise_number": "2a",
-      "parent_exercise_number": "2",
+      "exercise_number": "7a",
+      "parent_exercise_number": "7",
       "sub_exercise_letter": "a",
       "question_type": "pattern_puzzle",
-      "instruction": "Wat is de waarde van elke vorm?",
+      "instruction": "Wat zijn de figuren waard?",
       "raw_text": "...",
       "transformed_content": {
         "question_type": "pattern_puzzle",
-        "instruction": "Wat is de waarde van elke vorm?",
+        "instruction": "Wat zijn de figuren waard?",
         "difficulty_level": 2,
         "fill_in": null,
         "structured_hte": null,
         "creative": null,
         "pattern_puzzle": {
           "shapes": [
-            {"name": "circle", "value": 2},
-            {"name": "square", "value": 5}
+            {"name": "heart", "value": null},
+            {"name": "triangle", "value": null},
+            {"name": "square", "value": null}
           ],
           "groups": [
-            {"counts": {"circle": 3, "square": 2}, "total": 16, "is_known": true},
-            {"counts": {"circle": 2, "square": 3}, "total": 19, "is_known": true},
-            {"counts": {"circle": 1, "square": 4}, "total": null, "is_known": false}
+            {"counts": {"heart": 3, "triangle": 2}, "total": 16, "is_known": true},
+            {"counts": {"heart": 2, "square": 3}, "total": 19, "is_known": true},
+            {"counts": {"heart": 1, "square": 4}, "total": null, "is_known": false}
           ]
         }
       }
@@ -223,6 +116,7 @@ export async function extractAndTransformPage(
   const contextPreamble = context?.subject || context?.grade
     ? `\n\nCONTEXT: This page is from a ${context?.subject ?? 'Rekenen'} workbook for ${context?.grade ?? 'Dutch primary school'}. Use this to inform interpretation when ambiguous.\n`
     : ''
+
   const response = await groq.chat.completions.create({
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     messages: [
