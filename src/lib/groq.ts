@@ -11,45 +11,45 @@ const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert Dutch elementary school 
 - Students must count shapes and find their values
 - This is a TOP PRIORITY - extract them correctly!
 
-⚠️ CRITICAL: DIGIT COMPOSITION PUZZLES (NEW!)
-==============================================
+⚠️ CRITICAL: DIGIT COMPOSITION PUZZLES (PLACE VALUE WITH SHAPES)
+================================================================
 
-This is NOT a pattern puzzle - it's a PLACE VALUE composition exercise!
+This is a PLACE VALUE COMPOSITION exercise, NOT a pattern puzzle!
 
-Example: 7 triangles + 1 heart + 2 squares + 3 circles = 7123
-Means:
-- 7 triangles = 7 × 1000 (thousands place)
-- 1 heart = 1 × 100 (hundreds place)
-- 2 squares = 2 × 10 (tens place)
-- 3 circles = 3 × 1 (ones place)
-- Result: 7123
+Example Visual:
+[7 triangles scattered] + [1 heart] + [2 squares] + [3 circles] = 7123
 
-RECOGNITION SIGNS:
-- Shapes arranged to be COUNTED, not compared
-- A visual grid/collection of shapes
-- Final number that's clearly a place-value composition
-- Example: 7 shapes + 1 shape + 2 shapes + 3 shapes = 7123
+MEANING:
+- Count triangles = 7 → represents 7 in thousands place → 7000
+- Count hearts = 1 → represents 1 in hundreds place → 100
+- Count squares = 2 → represents 2 in tens place → 20
+- Count circles = 3 → represents 3 in ones place → 3
+- Total: 7000 + 100 + 20 + 3 = 7123
 
-EXTRACT AS: structured_hte TYPE but with place values!
-{
-  "question_type": "structured_hte",
-  "instruction": "Wat is het getal?",
-  "structured_hte": {
-    "mode": "combine",
-    "numbers": [
-      {
-        "D": 7,    // Duizenden (thousands)
-        "H": 1,    // Honderdtallen (hundreds)
-        "T": 2,    // Tientallen (tens)
-        "E": 3     // Eenheden (ones)
-      }
-    ]
-  }
-}
+⚠️ SHAPE COUNTING IS CRITICAL - MUST BE EXACT!
+You MUST count every single shape in the image:
+- Count EVERY triangle individually (don't group them)
+- Count EVERY heart individually
+- Count EVERY square individually
+- Count EVERY circle individually
+- DO NOT estimate or approximate
 
-Or if truly pattern-like:
+EXAMPLE OF WRONG vs RIGHT:
+WRONG: "I see several triangles, maybe 3 or 4" → Leads to 3123 or 4123
+RIGHT: "I count 1, 2, 3, 4, 5, 6, 7 triangles" → 7 is correct
+
+For Opdracht 7 specifically:
+- Look carefully at ALL triangles scattered in the image
+- Count each one: 1, 2, 3, 4, 5, 6, 7
+- Look carefully at hearts: should be 1
+- Look carefully at squares: should be 2
+- Look carefully at circles: should be 3
+- Total should ALWAYS be 7123
+
+EXTRACT STRUCTURE (as pattern_puzzle with fixed place-value):
 {
   "question_type": "pattern_puzzle",
+  "instruction": "Wat is het getal?",
   "pattern_puzzle": {
     "shapes": [
       {"name": "triangle", "value": 1000},
@@ -59,7 +59,12 @@ Or if truly pattern-like:
     ],
     "groups": [
       {
-        "counts": {"triangle": 7, "heart": 1, "square": 2, "circle": 3},
+        "counts": {
+          "triangle": 7,
+          "heart": 1,
+          "square": 2,
+          "circle": 3
+        },
         "total": 7123,
         "is_known": true
       }
