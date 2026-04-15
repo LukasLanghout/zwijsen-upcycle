@@ -85,6 +85,34 @@ Group 1: [3 circles] + [2 squares] = 16
 Group 2: [2 circles] + [3 squares] = 19
 Group 3: [1 circle] + [4 squares] = ?
 
+SHAPE NAME GUIDELINES (CRITICAL):
+- Use EXACT Dutch or English shape names:
+  * circle / cirkel
+  * square / vierkant
+  * triangle / driehoek
+  * heart / hart
+  * star / ster
+  * diamond / ruit
+  * pentagon / vijfhoek
+  * hexagon / zeshoek
+- DO NOT invent new shape names
+- If shapes look like hearts, use "heart" NOT "hartje"
+- If shapes look like stars, use "star" NOT "ster" and "star" NOT "*"
+- Count accurately - each individual shape in the visual
+
+COUNT ACCURACY (CRITICAL):
+- Count EVERY shape visible in the group
+- If you see: ♥ ♥ ♥ △ △ □ □
+  Then: heart: 3, triangle: 2, square: 2
+- Do not estimate - count precisely
+- Empty spaces or light shapes count as real shapes
+
+GROUP STRUCTURE (CRITICAL):
+- "counts" must have EXACT shape counts
+- "total" is the given number at the group (may be blank/unknown)
+- "is_known" is true ONLY if a number appears next to the group
+- If no number visible, "is_known": false and "total": null
+
 Transformation structure:
 {
   "shapes": [

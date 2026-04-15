@@ -450,15 +450,15 @@ function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
   }
 
   return (
-    <div>
-      {/* Shape value inputs */}
-      <div className="mb-4">
-        <p className="text-sm text-gray-600 font-medium mb-2">Wat zijn de figuren waard?</p>
-        <div className="flex gap-6 flex-wrap">
+    <div className="space-y-6">
+      {/* Shape value legend */}
+      <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200">
+        <p className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">📊 Wat zijn de vormen waard?</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {data.shapes.map((shape) => (
-            <div key={shape.name} className="flex items-center gap-3">
-              <ShapeVisualizer shape={shape.name} size={48} color="#A81D7B" filled />
-              <span className="text-lg font-semibold">=</span>
+            <div key={shape.name} className="flex flex-col items-center gap-2 p-3 bg-white rounded-lg border border-gray-200">
+              <ShapeVisualizer shape={shape.name} size={56} color="#A81D7B" filled />
+              <span className="text-xs text-gray-500 font-semibold">= ?</span>
               <input
                 type="number"
                 value={shapeAnswers[shape.name]}
@@ -466,85 +466,116 @@ function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
                   setShapeAnswers((a) => ({ ...a, [shape.name]: e.target.value }))
                   setChecked(false)
                 }}
+                inputMode="numeric"
                 className={clsx(
-                  'answer-input',
+                  'w-16 px-2 py-1 text-center border-2 rounded-lg font-bold text-lg',
                   checked &&
                     (isShapeCorrect(shape.name)
-                      ? 'border-green-400 bg-green-50'
-                      : 'border-red-400 bg-red-50')
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-red-500 bg-red-50')
                 )}
                 placeholder="?"
+                aria-label={`Waarde van ${shape.name}`}
               />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Group totals */}
-      <div className="grid grid-cols-2 gap-3">
-        {data.groups.map((group, i) => (
-          <div key={i} className="bg-gray-50 rounded-lg p-4">
-            <div className="flex flex-wrap gap-2 mb-3">
-              {Object.entries(group.counts).map(([shape, count]) =>
-                Array(count)
-                  .fill(null)
-                  .map((_, j) => (
-                    <ShapeVisualizer
-                      key={`${shape}-${j}`}
-                      shape={shape}
-                      size={32}
-                      color="#A81D7B"
-                      filled
-                    />
-                  ))
-              )}
+      {/* Group boxes - like original workbook layout */}
+      <div>
+        <p className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">📦 Groepen telstallen</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {data.groups.map((group, i) => (
+            <div key={i} className="bg-white rounded-xl p-6 border-2 border-gray-200 hover:shadow-lg transition-shadow">
+              {/* Shapes display - scattered like original */}
+              <div className="bg-gradient-to-br from-gray-50 to-white rounded-lg p-4 mb-4 min-h-24 flex flex-wrap gap-3 justify-center items-center">
+                {Object.entries(group.counts).map(([shape, count]) =>
+                  Array(count)
+                    .fill(null)
+                    .map((_, j) => (
+                      <div key={`${shape}-${j}`} className="transform transition-transform hover:scale-125">
+                        <ShapeVisualizer
+                          shape={shape}
+                          size={40}
+                          color="#A81D7B"
+                          filled
+                        />
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {/* Total input */}
+              <div className="flex items-center justify-center gap-3 text-lg font-bold">
+                <span className="text-gray-600">=</span>
+                {group.is_known ? (
+                  <div className="px-6 py-3 bg-zwijsen-primary-100 text-zwijsen-primary-700 font-bold text-2xl rounded-lg border-2 border-zwijsen-primary-300">
+                    {group.total}
+                  </div>
+                ) : (
+                  <input
+                    type="number"
+                    value={groupAnswers[i] ?? ''}
+                    onChange={(e) => {
+                      setGroupAnswers((a) => ({ ...a, [i]: e.target.value }))
+                      setChecked(false)
+                    }}
+                    inputMode="numeric"
+                    className={clsx(
+                      'w-20 px-4 py-3 text-center border-2 rounded-lg font-bold text-2xl',
+                      checked &&
+                        (isGroupCorrect(i)
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-red-500 bg-red-50')
+                    )}
+                    placeholder="?"
+                    aria-label={`Antwoord voor groep ${i + 1}`}
+                  />
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <span className="text-gray-600">=</span>
-              {group.is_known ? (
-                <span className="font-bold text-zwijsen-blue bg-zwijsen-blue-light px-2 py-0.5 rounded">
-                  {group.total}
-                </span>
-              ) : (
-                <input
-                  type="number"
-                  value={groupAnswers[i] ?? ''}
-                  onChange={(e) => {
-                    setGroupAnswers((a) => ({ ...a, [i]: e.target.value }))
-                    setChecked(false)
-                  }}
-                  className={clsx(
-                    'answer-input',
-                    checked &&
-                      (isGroupCorrect(i)
-                        ? 'border-green-400 bg-green-50'
-                        : 'border-red-400 bg-red-50')
-                  )}
-                  placeholder="?"
-                />
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
+      {/* Feedback message */}
       {checked && (
         <div className={clsx(
-          'mt-4 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium',
-          allCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          'flex items-center gap-3 px-6 py-4 rounded-xl text-base font-bold transition-all duration-300',
+          allCorrect
+            ? 'bg-green-100 text-green-800 border-2 border-green-300'
+            : 'bg-red-100 text-red-800 border-2 border-red-300'
         )}>
-          {allCorrect
-            ? <><CheckCircle size={16} /> Uitstekend!</>
-            : <><XCircle size={16} /> Bijna! Controleer je antwoorden</>}
+          {allCorrect ? (
+            <>
+              <CheckCircle size={24} className="flex-shrink-0" />
+              <span>Perfect! Je hebt alles correct opgelost! 🎉</span>
+            </>
+          ) : (
+            <>
+              <XCircle size={24} className="flex-shrink-0" />
+              <span>Bijna! Controleer je antwoorden en probeer opnieuw.</span>
+            </>
+          )}
         </div>
       )}
 
-      <div className="flex gap-2 mt-4">
-        <button onClick={() => setChecked(true)} className="btn-primary text-sm py-1.5 px-4">
+      {/* Action buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={() => setChecked(true)}
+          className="btn-primary flex-1 py-3 px-6 text-base font-bold"
+          aria-label="Controleer je antwoorden"
+        >
           Controleren
         </button>
-        <button onClick={reset} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1">
-          <RotateCcw size={14} /> Opnieuw
+        <button
+          onClick={reset}
+          className="btn-secondary py-3 px-6 flex items-center justify-center gap-2 font-bold"
+          aria-label="Zet alles leeg"
+        >
+          <RotateCcw size={20} /> Opnieuw
         </button>
       </div>
     </div>
