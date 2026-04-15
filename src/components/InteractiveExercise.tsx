@@ -310,13 +310,19 @@ function HTERow({ number, mode }: { number: HTENumber; mode: 'split' | 'combine'
                       setChecked(false)
                     }}
                     className={clsx(
-                      'answer-input w-20',
-                      checked && (isCorrect(key) ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
+                      'px-4 py-3 border-2 rounded-xl font-bold text-2xl text-center min-h-14',
+                      'border-zwijsen-primary-300 bg-white hover:border-zwijsen-primary-400',
+                      'focus:outline-none focus:ring-2 focus:ring-zwijsen-primary-500 focus:border-transparent',
+                      'transition-all duration-200',
+                      checked && (isCorrect(key)
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-red-500 bg-red-50 text-red-700'
+                      )
                     )}
                     placeholder="?"
                     aria-label={labels[key].nl}
                   />
-                  <span className="text-xs text-gray-500 mt-1">{labels[key].en}</span>
+                  <span className="text-xs font-semibold text-gray-600 mt-2">{labels[key].nl}</span>
                 </div>
                 {i < 2 && <span className="text-gray-400 text-xl mx-1">+</span>}
               </span>
