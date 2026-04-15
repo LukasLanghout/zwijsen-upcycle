@@ -74,44 +74,46 @@ function FillInExerciseView({ data }: { data: FillInExercise }) {
 
   return (
     <div>
-      {/* Main equation with better sizing */}
-      <div className="mb-8 flex items-center gap-4 flex-wrap justify-center p-6 bg-white rounded-xl border-2 border-gray-100">
-        <span className="bg-gradient-to-br from-zwijsen-primary-100 to-zwijsen-primary-50 text-zwijsen-primary-600 px-6 py-3 rounded-xl font-bold text-3xl md:text-4xl shadow-sm">
-          {data.number}
-        </span>
-        <span className="text-3xl md:text-4xl font-bold text-gray-400">=</span>
-        <div className="flex items-center gap-3 flex-wrap">
-          {data.answer.map((_, i) => (
-            <span key={i} className="flex items-center gap-2">
-              <input
-                type="number"
-                value={answers[i]}
-                onChange={(e) => {
-                  const next = [...answers]
-                  next[i] = e.target.value
-                  setAnswers(next)
-                  setChecked(false)
-                }}
-                inputMode="numeric"
-                className={clsx(
-                  'answer-input text-2xl text-center font-bold',
-                  'hover:border-zwijsen-primary-400',
-                  checked && (isCorrect(i)
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-red-500 bg-red-50 text-red-700 shake'
-                  )
+      {/* Main equation - all on one line */}
+      <div className="mb-8 p-6 bg-white rounded-xl border-2 border-gray-100 overflow-x-auto">
+        <div className="flex items-center gap-3 justify-center min-w-fit">
+          <span className="bg-gradient-to-br from-zwijsen-primary-100 to-zwijsen-primary-50 text-zwijsen-primary-600 px-6 py-3 rounded-xl font-bold text-3xl md:text-4xl shadow-sm flex-shrink-0">
+            {data.number}
+          </span>
+          <span className="text-3xl md:text-4xl font-bold text-gray-400 flex-shrink-0">=</span>
+          <div className="flex items-center gap-3 flex-nowrap">
+            {data.answer.map((_, i) => (
+              <span key={i} className="flex items-center gap-2 flex-shrink-0">
+                <input
+                  type="number"
+                  value={answers[i]}
+                  onChange={(e) => {
+                    const next = [...answers]
+                    next[i] = e.target.value
+                    setAnswers(next)
+                    setChecked(false)
+                  }}
+                  inputMode="numeric"
+                  className={clsx(
+                    'answer-input text-2xl text-center font-bold w-24',
+                    'hover:border-zwijsen-primary-400',
+                    checked && (isCorrect(i)
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-red-500 bg-red-50 text-red-700 shake'
+                    )
+                  )}
+                  placeholder="?"
+                  aria-label={`Vak ${i + 1}`}
+                />
+                {data.labels[i] && (
+                  <span className="text-sm font-semibold text-gray-600 ml-1 flex-shrink-0">
+                    {data.labels[i]}
+                  </span>
                 )}
-                placeholder="?"
-                aria-label={`Vak ${i + 1}`}
-              />
-              {data.labels[i] && (
-                <span className="text-sm font-semibold text-gray-600 ml-1">
-                  {data.labels[i]}
-                </span>
-              )}
-              {i < data.answer.length - 1 && <span className="text-2xl text-gray-300">+</span>}
-            </span>
-          ))}
+                {i < data.answer.length - 1 && <span className="text-2xl text-gray-300 flex-shrink-0">+</span>}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
