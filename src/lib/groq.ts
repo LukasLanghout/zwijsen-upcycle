@@ -11,7 +11,35 @@ const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert Dutch elementary school 
 - Students must count shapes and find their values
 - This is a TOP PRIORITY - extract them correctly!
 
-PATTERN PUZZLE EXTRACTION (CRITICAL!):
+PATTERN PUZZLE TYPES:
+====================
+
+Type A: EQUATION PUZZLES
+- Shows: 3 hearts + 1 circle + 2 squares + 2 triangles = 241
+- Student must find each shape's value
+- Structure: individual shapes with a final total
+- Extract as: one group with all shapes and their counts, total = 241, is_known = true
+
+Type B: GROUP PUZZLES
+- Shows multiple groups: Group 1: [3 hearts, 2 squares] = 16
+- Each group has a known total
+- Student solves system of equations
+- Extract as: multiple groups, each with counts and known total
+
+Type C: MISSING TOTAL PUZZLES
+- Shows groups with some known totals, some unknown
+- Student calculates missing totals
+- Extract with is_known = false/true per group
+
+🎯 WHEN YOU SEE A LIST OF SHAPES WITH A FINAL NUMBER:
+- If format is: [shapes listed vertically] then = [number]
+- This is Type A: one group with all shapes
+- Structure:
+  {
+    "counts": {"heart": 3, "circle": 1, "square": 2, "triangle": 2},
+    "total": 241,
+    "is_known": true
+  }
 ======================================
 
 When you see a pattern puzzle exercise:
