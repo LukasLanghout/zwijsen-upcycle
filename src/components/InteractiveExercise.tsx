@@ -19,22 +19,29 @@ interface Props {
 
 export default function InteractiveExercise({ exercise }: Props) {
   return (
-    <div className="card p-6">
-      <p className="text-lg font-semibold text-gray-800 mb-5">
-        {exercise.instruction}
-      </p>
-      {exercise.question_type === 'fill_in' && exercise.fill_in && (
-        <FillInExerciseView data={exercise.fill_in} />
-      )}
-      {exercise.question_type === 'structured_hte' && exercise.structured_hte && (
-        <StructuredHTEView data={exercise.structured_hte} />
-      )}
-      {exercise.question_type === 'creative' && exercise.creative && (
-        <CreativeView data={exercise.creative} />
-      )}
-      {exercise.question_type === 'pattern_puzzle' && exercise.pattern_puzzle && (
-        <PatternPuzzleView data={exercise.pattern_puzzle} />
-      )}
+    <div className="card p-8 md:p-10">
+      {/* Instruction - Improved Typography */}
+      <div className="mb-8">
+        <p className="text-2xl font-bold text-gray-900 leading-relaxed">
+          {exercise.instruction}
+        </p>
+      </div>
+
+      {/* Exercise Content */}
+      <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 md:p-10 border-2 border-gray-100">
+        {exercise.question_type === 'fill_in' && exercise.fill_in && (
+          <FillInExerciseView data={exercise.fill_in} />
+        )}
+        {exercise.question_type === 'structured_hte' && exercise.structured_hte && (
+          <StructuredHTEView data={exercise.structured_hte} />
+        )}
+        {exercise.question_type === 'creative' && exercise.creative && (
+          <CreativeView data={exercise.creative} />
+        )}
+        {exercise.question_type === 'pattern_puzzle' && exercise.pattern_puzzle && (
+          <PatternPuzzleView data={exercise.pattern_puzzle} />
+        )}
+      </div>
     </div>
   )
 }
@@ -63,55 +70,97 @@ function FillInExerciseView({ data }: { data: FillInExercise }) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 text-2xl font-bold flex-wrap">
-        <span className="bg-[#F3D6EB] text-[#A81D7B] px-3 py-1 rounded-xl font-bold">
+      {/* Main equation with better sizing */}
+      <div className="mb-8 flex items-center gap-4 flex-wrap justify-center p-6 bg-white rounded-xl border-2 border-gray-100">
+        <span className="bg-gradient-to-br from-zwijsen-primary-100 to-zwijsen-primary-50 text-zwijsen-primary-600 px-6 py-3 rounded-xl font-bold text-3xl md:text-4xl shadow-sm">
           {data.number}
         </span>
-        <span>=</span>
-        {data.answer.map((_, i) => (
-          <span key={i} className="flex items-center gap-1">
-            <input
-              type="number"
-              value={answers[i]}
-              onChange={(e) => {
-                const next = [...answers]
-                next[i] = e.target.value
-                setAnswers(next)
-                setChecked(false)
-              }}
-              className={clsx(
-                'answer-input',
-                checked && (isCorrect(i) ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
+        <span className="text-3xl md:text-4xl font-bold text-gray-400">=</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {data.answer.map((_, i) => (
+            <span key={i} className="flex items-center gap-2">
+              <input
+                type="number"
+                value={answers[i]}
+                onChange={(e) => {
+                  const next = [...answers]
+                  next[i] = e.target.value
+                  setAnswers(next)
+                  setChecked(false)
+                }}
+                inputMode="numeric"
+                className={clsx(
+                  'answer-input text-2xl text-center font-bold',
+                  'hover:border-zwijsen-primary-400',
+                  checked && (isCorrect(i)
+                    ? 'border-green-500 bg-green-50 text-green-700'
+                    : 'border-red-500 bg-red-50 text-red-700 shake'
+                  )
+                )}
+                placeholder="?"
+                aria-label={`Vak ${i + 1}`}
+              />
+              {data.labels[i] && (
+                <span className="text-sm font-semibold text-gray-600 ml-1">
+                  {data.labels[i]}
+                </span>
               )}
-              placeholder="?"
-            />
-            {data.labels[i] && (
-              <span className="text-sm text-gray-500 ml-1">{data.labels[i]}</span>
-            )}
-            {i < data.answer.length - 1 && <span className="text-gray-400">+</span>}
-          </span>
-        ))}
+              {i < data.answer.length - 1 && <span className="text-2xl text-gray-300">+</span>}
+            </span>
+          ))}
+        </div>
       </div>
 
+      {/* Feedback message with animation */}
       {checked && (
-        <div className={clsx(
-          'mt-4 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium',
-          allCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        )}>
-          {allCorrect
-            ? <><CheckCircle size={16} /> Goed gedaan!</>
-            : <><XCircle size={16} /> Niet helemaal goed. Probeer opnieuw!</>}
+        <div
+          className={clsx(
+            'mb-6 flex items-center gap-3 px-6 py-4 rounded-xl text-base font-bold transition-all duration-300',
+            allCorrect
+              ? 'bg-green-100 text-green-800 border-2 border-green-300 animate-pulse'
+              : 'bg-red-100 text-red-800 border-2 border-red-300'
+          )}
+        >
+          {allCorrect ? (
+            <>
+              <CheckCircle size={24} className="flex-shrink-0" />
+              <span>Excellent! Je hebt het goed opgelost! 🎉</span>
+            </>
+          ) : (
+            <>
+              <XCircle size={24} className="flex-shrink-0" />
+              <span>Niet helemaal. Kijk naar de vakken in rood en probeer opnieuw.</span>
+            </>
+          )}
         </div>
       )}
 
-      <div className="flex gap-2 mt-4">
-        <button onClick={check} className="btn-primary text-sm py-1.5 px-4">
+      {/* Action buttons - Improved */}
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={check}
+          disabled={answers.some((a) => a === '')}
+          className="btn-primary flex-1 md:flex-none py-3 px-8 text-base font-bold transition-all duration-200"
+          aria-label="Controleer je antwoord"
+        >
           Controleren
         </button>
-        <button onClick={reset} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1">
-          <RotateCcw size={14} /> Opnieuw
+        <button
+          onClick={reset}
+          className="btn-secondary py-3 px-6 flex items-center justify-center gap-2 font-bold transition-all duration-200"
+          aria-label="Zet alle vakken leeg"
+        >
+          <RotateCcw size={18} />
+          <span>Opnieuw</span>
         </button>
       </div>
+
+      {/* Help text */}
+      {!checked && (
+        <p className="text-sm text-gray-600 mt-6 text-center font-medium">
+          💡 Tip: Je kunt het getal verdelen in honderdtallen, tientallen en eenheden
+        </p>
+      )}
     </div>
   )
 }
