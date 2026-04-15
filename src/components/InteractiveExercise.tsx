@@ -22,11 +22,27 @@ interface Props {
 export default function InteractiveExercise({ exercise }: Props) {
   return (
     <div className="card p-8 md:p-10">
-      {/* Instruction - Improved Typography */}
+      {/* Instruction - Improved Typography with hint for specific types */}
       <div className="mb-8">
         <p className="text-2xl font-bold text-gray-900 leading-relaxed">
           {exercise.instruction}
         </p>
+        {/* Type-specific helpful hints */}
+        {exercise.question_type === 'structured_hte' && (
+          <p className="text-sm text-gray-600 mt-3 pl-4 border-l-4 border-zwijsen-primary-300">
+            💡 <strong>Tip:</strong> Schrijf het getal in de juiste vakken. Je kunt zowel de plaatswaarde (700) als het cijfer (7) invullen.
+          </p>
+        )}
+        {exercise.question_type === 'fill_in' && (
+          <p className="text-sm text-gray-600 mt-3 pl-4 border-l-4 border-zwijsen-primary-300">
+            💡 <strong>Tip:</strong> Splits het getal in honderdtallen, tientallen en eenheden.
+          </p>
+        )}
+        {exercise.question_type === 'pattern_puzzle' && (
+          <p className="text-sm text-gray-600 mt-3 pl-4 border-l-4 border-zwijsen-primary-300">
+            💡 <strong>Tip:</strong> Kijk eerst welke symbolen welke waarde hebben, dan reken je uit wat het getal is.
+          </p>
+        )}
       </div>
 
       {/* Exercise Content */}
@@ -211,23 +227,32 @@ function HTERow({ number, mode }: { number: HTENumber; mode: 'split' | 'combine'
 
   const reset = () => { setAnswers({}); setChecked(false) }
 
+  const labels = {
+    H: { nl: 'Honderdtallen', en: 'H' },
+    T: { nl: 'Tientallen', en: 'T' },
+    E: { nl: 'Eenheden', en: 'E' },
+  }
+
   return (
-    <div className="bg-gray-50 rounded-xl p-4">
-      {/* H-T-E header boxes */}
-      <div className="flex gap-2 mb-3">
-        {['H', 'T', 'E'].map((label) => (
-          <div key={label} className="flex flex-col items-center gap-1">
-            <div className="hte-header">{label}</div>
+    <div className="bg-white rounded-xl p-6 border-2 border-gray-200">
+      {/* H-T-E header boxes with Dutch labels */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        {(['H', 'T', 'E'] as const).map((key) => (
+          <div key={key} className="flex flex-col items-center">
+            <div className="text-xs font-bold text-zwijsen-primary-600 uppercase tracking-wide mb-2">
+              {labels[key].nl}
+            </div>
+            <div className="hte-header">{key}</div>
             {isSplit ? (
-              <div className="hte-box text-zwijsen-blue font-bold">
-                {label === 'H' ? Math.floor(fullNumber / 100) :
-                  label === 'T' ? Math.floor((fullNumber % 100) / 10) :
+              <div className="hte-box text-zwijsen-primary-700 font-bold mt-2 bg-zwijsen-primary-50">
+                {key === 'H' ? Math.floor(fullNumber / 100) :
+                  key === 'T' ? Math.floor((fullNumber % 100) / 10) :
                     fullNumber % 10}
               </div>
             ) : (
-              <div className="hte-box bg-gray-100">
-                {label === 'H' ? number.H :
-                  label === 'T' ? number.T :
+              <div className="hte-box bg-gray-100 mt-2">
+                {key === 'H' ? number.H :
+                  key === 'T' ? number.T :
                     number.E}
               </div>
             )}
@@ -236,70 +261,91 @@ function HTERow({ number, mode }: { number: HTENumber; mode: 'split' | 'combine'
       </div>
 
       {/* Equation row */}
-      <div className="flex items-center gap-2 text-lg font-semibold flex-wrap">
+      <div className="flex items-center gap-3 text-lg font-semibold flex-wrap justify-center px-4">
         {isSplit ? (
           <>
-            <span className="text-zwijsen-blue">{fullNumber}</span>
-            <span>=</span>
+            <span className="text-zwijsen-primary-700 font-bold text-2xl">{fullNumber}</span>
+            <span className="text-gray-400 text-2xl">=</span>
             {(['H', 'T', 'E'] as const).map((key, i) => (
               <span key={key} className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={answers[key] ?? ''}
-                  onChange={(e) => {
-                    setAnswers((a) => ({ ...a, [key]: e.target.value }))
-                    setChecked(false)
-                  }}
-                  className={clsx(
-                    'answer-input',
-                    checked && (isCorrect(key) ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
-                  )}
-                  placeholder="?"
-                />
-                {i < 2 && <span className="text-gray-400">+</span>}
+                <div className="flex flex-col items-center">
+                  <input
+                    type="number"
+                    value={answers[key] ?? ''}
+                    onChange={(e) => {
+                      setAnswers((a) => ({ ...a, [key]: e.target.value }))
+                      setChecked(false)
+                    }}
+                    className={clsx(
+                      'answer-input w-20',
+                      checked && (isCorrect(key) ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
+                    )}
+                    placeholder="?"
+                    aria-label={labels[key].nl}
+                  />
+                  <span className="text-xs text-gray-500 mt-1">{labels[key].en}</span>
+                </div>
+                {i < 2 && <span className="text-gray-400 text-xl mx-1">+</span>}
               </span>
             ))}
           </>
         ) : (
           <>
-            <span>{number.H * 100}</span>
-            <span className="text-gray-400">+</span>
-            <span>{number.T * 10}</span>
-            <span className="text-gray-400">+</span>
-            <span>{number.E}</span>
-            <span>=</span>
-            <input
-              type="number"
-              value={answers['total'] ?? ''}
-              onChange={(e) => {
-                setAnswers({ total: e.target.value })
-                setChecked(false)
-              }}
-              className={clsx(
-                'answer-input w-20',
-                checked && (isCorrect('total') ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
-              )}
-              placeholder="?"
-            />
+            <span className="font-bold text-2xl">{number.H * 100}</span>
+            <span className="text-gray-400 text-2xl">+</span>
+            <span className="font-bold text-2xl">{number.T * 10}</span>
+            <span className="text-gray-400 text-2xl">+</span>
+            <span className="font-bold text-2xl">{number.E}</span>
+            <span className="text-gray-400 text-2xl">=</span>
+            <div className="flex flex-col items-center">
+              <input
+                type="number"
+                value={answers['total'] ?? ''}
+                onChange={(e) => {
+                  setAnswers({ total: e.target.value })
+                  setChecked(false)
+                }}
+                className={clsx(
+                  'answer-input w-20 text-2xl',
+                  checked && (isCorrect('total') ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
+                )}
+                placeholder="?"
+                aria-label="Totaal getal"
+              />
+              <span className="text-xs text-gray-500 mt-1">Totaal</span>
+            </div>
           </>
         )}
       </div>
 
+      {/* Feedback message */}
       {checked && (
         <div className={clsx(
-          'mt-3 flex items-center gap-2 px-3 py-1.5 rounded text-sm',
-          allCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          'mt-4 flex items-center gap-3 px-4 py-3 rounded-lg text-base font-bold transition-all',
+          allCorrect
+            ? 'bg-green-100 text-green-800 border-2 border-green-300'
+            : 'bg-red-100 text-red-800 border-2 border-red-300'
         )}>
-          {allCorrect
-            ? <><CheckCircle size={14} /> Goed!</>
-            : <><XCircle size={14} /> Probeer opnieuw</>}
+          {allCorrect ? (
+            <>
+              <CheckCircle size={18} className="flex-shrink-0" />
+              <span>Prima! Het antwoord klopt! ✓</span>
+            </>
+          ) : (
+            <>
+              <XCircle size={18} className="flex-shrink-0" />
+              <span>Niet helemaal. Controleer je antwoorden en probeer opnieuw.</span>
+            </>
+          )}
         </div>
       )}
 
-      <div className="flex gap-2 mt-3">
+      {/* Action buttons */}
+      <div className="flex gap-2 mt-4">
         <button
           onClick={() => setChecked(true)}
-          className="btn-primary text-xs py-1 px-3"
+          disabled={expectedKeys.some((k) => !answers[k])}
+          className="btn-primary text-sm py-2 px-4"
         >
           Controleren
         </button>
