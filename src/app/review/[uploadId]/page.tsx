@@ -21,6 +21,8 @@ type UploadInfo = {
   id: string
   filename: string
   storage_path: string
+  subject: string | null
+  grade: string | null
   status: string
   page_count: number | null
 }
@@ -164,7 +166,21 @@ export default function ReviewPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Oefeningen controleren</h1>
-          {uploadInfo && <p className="text-sm text-gray-500">{uploadInfo.filename}</p>}
+          {uploadInfo && (
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <p className="text-sm text-gray-500">{uploadInfo.filename}</p>
+              {uploadInfo.subject && (
+                <span className="text-xs bg-pink-100 text-zwijsen-pink px-2 py-0.5 rounded-full font-medium">
+                  {uploadInfo.subject}
+                </span>
+              )}
+              {uploadInfo.grade && (
+                <span className="text-xs bg-blue-100 text-zwijsen-blue px-2 py-0.5 rounded-full font-medium">
+                  {uploadInfo.grade}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         {polling && (
           <div className="ml-auto flex items-center gap-2 text-[#A81D7B] text-sm">
@@ -313,8 +329,13 @@ function ExerciseReviewCard({
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-bold text-gray-900">
-            Oefening {exercise.exercise_number}
+            Opdracht {exercise.exercise_number}
           </span>
+          {exercise.parent_exercise_number && exercise.sub_exercise_letter && (
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+              subopdracht {exercise.sub_exercise_letter} van {exercise.parent_exercise_number}
+            </span>
+          )}
           <span className="text-xs text-gray-500">Pagina {exercise.page_number}</span>
           <span className={clsx('badge', `badge-${exercise.question_type}`)}>
             {QUESTION_TYPE_LABELS[exercise.question_type]}

@@ -5,6 +5,8 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
+    const subject = (formData.get('subject') as string | null) || null
+    const grade = (formData.get('grade') as string | null) || null
 
     if (!file) {
       return NextResponse.json({ error: 'Geen bestand ontvangen' }, { status: 400 })
@@ -20,6 +22,8 @@ export async function POST(req: NextRequest) {
       .insert({
         filename: file.name,
         storage_path: '', // Will update after upload
+        subject,
+        grade,
         status: 'processing',
       })
       .select()
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     // Return uploadId + storagePath so client can do PDF-to-image conversion
     // and send images to /api/extract directly (avoids server-side canvas dependency)
-    return NextResponse.json({ uploadId: uploadRecord.id, storagePath })
+    return NextResponse.json({ uploadId: uploadRecord.id, storagePath, subject, grade })
   } catch (err) {
     console.error('Upload error:', err)
     return NextResponse.json({ error: 'Onverwachte fout' }, { status: 500 })

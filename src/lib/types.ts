@@ -33,16 +33,44 @@ export interface PDFUpload {
   id: string
   filename: string
   storage_path: string
+  subject: string | null
+  grade: string | null
   status: UploadStatus
   page_count: number | null
   created_at: string
 }
+
+// Subjects available for selection
+export const SUBJECTS = [
+  'Rekenen',
+  'Taal',
+  'Spelling',
+  'Lezen',
+  'Wereldorientatie',
+  'Engels',
+] as const
+export type Subject = typeof SUBJECTS[number]
+
+// Grade (klas) options for Dutch primary/secondary school
+export const GRADES = [
+  'Groep 3',
+  'Groep 4',
+  'Groep 5',
+  'Groep 6',
+  'Groep 7',
+  'Groep 8',
+  'Klas 1 VO',
+  'Klas 2 VO',
+] as const
+export type Grade = typeof GRADES[number]
 
 export interface Exercise {
   id: string
   pdf_upload_id: string
   page_number: number
   exercise_number: string
+  parent_exercise_number: string | null
+  sub_exercise_letter: string | null
   block: string | null
   lesson: string | null
   question_type: QuestionType

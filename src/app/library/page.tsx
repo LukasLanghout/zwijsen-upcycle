@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Search, Filter, BookOpen, ChevronRight, Zap } from 'lucide-react'
 import type { Exercise, QuestionType, DifficultyLevel, ExerciseStatus } from '@/lib/types'
+import { SUBJECTS, GRADES } from '@/lib/types'
 import clsx from 'clsx'
 
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
@@ -20,6 +21,8 @@ export default function LibraryPage() {
     status: '' as ExerciseStatus | '',
     questionType: '' as QuestionType | '',
     difficulty: '' as string,
+    subject: '' as string,
+    grade: '' as string,
     search: '',
   })
 
@@ -29,6 +32,8 @@ export default function LibraryPage() {
     if (filters.status) params.set('status', filters.status)
     if (filters.questionType) params.set('questionType', filters.questionType)
     if (filters.difficulty) params.set('difficulty', filters.difficulty)
+    if (filters.subject) params.set('subject', filters.subject)
+    if (filters.grade) params.set('grade', filters.grade)
 
     const res = await fetch(`/api/exercises?${params}`)
     const data = await res.json()
@@ -38,7 +43,7 @@ export default function LibraryPage() {
 
   useEffect(() => {
     fetchExercises()
-  }, [filters.status, filters.questionType, filters.difficulty])
+  }, [filters.status, filters.questionType, filters.difficulty, filters.subject, filters.grade])
 
   const filtered = exercises.filter((e) => {
     if (!filters.search) return true
@@ -92,6 +97,30 @@ export default function LibraryPage() {
           <option value="pending">In afwachting</option>
           <option value="approved">Goedgekeurd</option>
           <option value="rejected">Afgewezen</option>
+        </select>
+
+        {/* Subject filter */}
+        <select
+          value={filters.subject}
+          onChange={(e) => setFilters((f) => ({ ...f, subject: e.target.value }))}
+          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-zwijsen-blue"
+        >
+          <option value="">Alle vakken</option>
+          {SUBJECTS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+
+        {/* Grade filter */}
+        <select
+          value={filters.grade}
+          onChange={(e) => setFilters((f) => ({ ...f, grade: e.target.value }))}
+          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-zwijsen-blue"
+        >
+          <option value="">Alle klassen</option>
+          {GRADES.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
         </select>
 
         {/* Type filter */}
@@ -194,8 +223,24 @@ function ExerciseCard({ exercise }: { exercise: Exercise }) {
 
       {/* Meta */}
       <div className="text-xs text-gray-400 mb-2">
-        Blok {exercise.block} · Les {exercise.lesson} · Oef. {exercise.exercise_number}
+        Blok {exercise.block} · Les {exercise.lesson} · Opdracht {exercise.exercise_number}
       </div>
+
+      {/* Subject / grade chips */}
+      {(exercise.pdf_upload?.subject || exercise.pdf_upload?.grade) && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {exercise.pdf_upload?.subject && (
+            <span className="text-[10px] bg-pink-100 text-zwijsen-pink px-2 py-0.5 rounded-full font-medium">
+              {exercise.pdf_upload.subject}
+            </span>
+          )}
+          {exercise.pdf_upload?.grade && (
+            <span className="text-[10px] bg-blue-100 text-zwijsen-blue px-2 py-0.5 rounded-full font-medium">
+              {exercise.pdf_upload.grade}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Instruction */}
       <p className="text-sm text-gray-700 mb-3 line-clamp-2 flex-1">

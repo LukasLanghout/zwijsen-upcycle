@@ -33,11 +33,16 @@ CREATE TABLE IF NOT EXISTS pdf_uploads (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   filename    VARCHAR NOT NULL,
   storage_path VARCHAR NOT NULL,
+  subject     VARCHAR,
+  grade       VARCHAR,
   status      VARCHAR NOT NULL DEFAULT 'processing'
                 CHECK (status IN ('processing', 'completed', 'failed')),
   page_count  INTEGER,
   created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_pdf_uploads_subject ON pdf_uploads(subject);
+CREATE INDEX IF NOT EXISTS idx_pdf_uploads_grade   ON pdf_uploads(grade);
 
 -- ============================================================
 -- EXERCISES TABLE
@@ -47,6 +52,8 @@ CREATE TABLE IF NOT EXISTS exercises (
   pdf_upload_id     UUID REFERENCES pdf_uploads(id) ON DELETE CASCADE,
   page_number       INTEGER NOT NULL DEFAULT 1,
   exercise_number   VARCHAR NOT NULL,
+  parent_exercise_number VARCHAR,
+  sub_exercise_letter    VARCHAR,
   block             VARCHAR,
   lesson            VARCHAR,
   question_type     VARCHAR NOT NULL
@@ -82,6 +89,7 @@ CREATE INDEX idx_exercises_pdf_upload ON exercises(pdf_upload_id);
 CREATE INDEX idx_exercises_status ON exercises(status);
 CREATE INDEX idx_exercises_question_type ON exercises(question_type);
 CREATE INDEX idx_exercises_difficulty ON exercises(difficulty_level);
+CREATE INDEX idx_exercises_parent ON exercises(parent_exercise_number);
 
 -- ============================================================
 -- EXERCISE VARIANTS TABLE
