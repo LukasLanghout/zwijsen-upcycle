@@ -30,9 +30,9 @@ export function PatternPuzzleVisualizer({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-wrap gap-6 justify-center">
       {groups.map((group, groupIdx) => (
-        <div key={groupIdx} className="flex flex-col gap-3">
+        <div key={groupIdx} className="flex flex-col gap-3 flex-1 min-w-64 max-w-80">
           {/* Shape Grid - Mimics original layout */}
           <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200 min-h-32">
             <ShapeGrid shapes={group.shapes} counts={group.counts} color={color} size={shapeSize} />
