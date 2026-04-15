@@ -21,25 +21,25 @@ interface Props {
 
 export default function InteractiveExercise({ exercise }: Props) {
   return (
-    <div className="card p-8 md:p-10">
+    <div className="card p-8 md:p-10 border-0 shadow-lg">
       {/* Instruction - Improved Typography with hint for specific types */}
-      <div className="mb-8">
+      <div className="mb-10 pb-8 border-b-2 border-gray-100">
         <p className="text-2xl font-bold text-gray-900 leading-relaxed">
           {exercise.instruction}
         </p>
         {/* Type-specific helpful hints */}
         {exercise.question_type === 'structured_hte' && (
-          <p className="text-sm text-gray-600 mt-3 pl-4 border-l-4 border-zwijsen-primary-300">
+          <p className="text-sm text-zwijsen-primary-600 mt-4 pl-4 border-l-4 border-zwijsen-primary-300 font-medium">
             💡 <strong>Tip:</strong> Schrijf het getal in de juiste vakken. Je kunt zowel de plaatswaarde (700) als het cijfer (7) invullen.
           </p>
         )}
         {exercise.question_type === 'fill_in' && (
-          <p className="text-sm text-gray-600 mt-3 pl-4 border-l-4 border-zwijsen-primary-300">
+          <p className="text-sm text-zwijsen-primary-600 mt-4 pl-4 border-l-4 border-zwijsen-primary-300 font-medium">
             💡 <strong>Tip:</strong> Splits het getal in honderdtallen, tientallen en eenheden.
           </p>
         )}
         {exercise.question_type === 'pattern_puzzle' && (
-          <p className="text-sm text-gray-600 mt-3 pl-4 border-l-4 border-zwijsen-primary-300">
+          <p className="text-sm text-zwijsen-primary-600 mt-4 pl-4 border-l-4 border-zwijsen-primary-300 font-medium">
             💡 <strong>Tip:</strong> Kijk eerst welke symbolen welke waarde hebben, dan reken je uit wat het getal is.
           </p>
         )}
@@ -160,39 +160,49 @@ function FillInExerciseView({ data }: { data: FillInExercise }) {
       {checked && (
         <div
           className={clsx(
-            'mb-6 flex items-center gap-3 px-6 py-4 rounded-xl text-base font-bold transition-all duration-300',
+            'mb-8 flex items-center gap-4 px-6 py-4 rounded-2xl text-base font-bold transition-all duration-300 border-2',
             allCorrect
-              ? 'bg-green-100 text-green-800 border-2 border-green-300 animate-pulse'
-              : 'bg-red-100 text-red-800 border-2 border-red-300'
+              ? 'bg-green-50 text-green-800 border-green-300 shadow-lg'
+              : 'bg-red-50 text-red-800 border-red-300 shadow-md'
           )}
         >
           {allCorrect ? (
             <>
-              <CheckCircle size={24} className="flex-shrink-0" />
-              <span>Excellent! Je hebt het goed opgelost! 🎉</span>
+              <div className="text-green-600 flex-shrink-0">
+                <CheckCircle size={28} />
+              </div>
+              <div>
+                <p className="font-bold text-lg">Uitstekend! 🎉</p>
+                <p className="text-sm text-green-700 font-medium">Je hebt het goed opgelost! Goed gedaan!</p>
+              </div>
             </>
           ) : (
             <>
-              <XCircle size={24} className="flex-shrink-0" />
-              <span>Niet helemaal. Kijk naar de vakken in rood en probeer opnieuw.</span>
+              <div className="text-red-600 flex-shrink-0">
+                <XCircle size={28} />
+              </div>
+              <div>
+                <p className="font-bold text-lg">Niet helemaal</p>
+                <p className="text-sm text-red-700 font-medium">Kijk naar de vakken in rood en probeer opnieuw.</p>
+              </div>
             </>
           )}
         </div>
       )}
 
       {/* Action buttons - Improved */}
-      <div className="flex gap-3 mt-6">
+      <div className="flex gap-3 mt-10">
         <button
           onClick={check}
           disabled={answers.some((a) => a === '')}
-          className="btn-primary flex-1 md:flex-none py-3 px-8 text-base font-bold transition-all duration-200"
+          className="btn-primary flex-1 md:flex-none py-4 px-8 text-base font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
           aria-label="Controleer je antwoord"
         >
-          Controleren
+          ✓ Controleren
         </button>
         <button
           onClick={reset}
-          className="btn-secondary py-3 px-6 flex items-center justify-center gap-2 font-bold transition-all duration-200"
+          className="btn-secondary py-4 px-6 flex items-center justify-center gap-2 font-bold transition-all duration-200"
           aria-label="Zet alle vakken leeg"
         >
           <RotateCcw size={18} />
