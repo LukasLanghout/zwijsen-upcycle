@@ -604,16 +604,46 @@ function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
 //  - heart    = 100  (honderdtallen)
 //  - square   = 10   (tientallen)
 //  - circle   = 1    (eenheden)
-// Student must calculate the total number represented.
+// Layout mimics original Zwijsen workbook: legend on left, groups on right
 function DigitCompositionView({ data }: { data: PatternPuzzleExercise }) {
-  const group = data.groups[0]
-
   // Sort shapes by place value DESC (thousands first)
   const sortedShapes = [...data.shapes].sort((a, b) => b.value - a.value)
 
+  return (
+    <div className="space-y-6">
+      {/* Legend */}
+      <div className="bg-white rounded-xl p-6 border-2 border-gray-200">
+        <p className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">Welk symbool welke waarde?</p>
+        <div className="grid grid-cols-2 gap-4 max-w-xs">
+          {sortedShapes.map((shape) => (
+            <div key={shape.name} className="flex items-center gap-3">
+              <ShapeVisualizer shape={shape.name} size={32} color="#A81D7B" filled />
+              <span className="text-sm font-bold text-gray-700">=</span>
+              <span className="text-lg font-bold text-zwijsen-primary-600">{shape.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Groups */}
+      <div className="space-y-6">
+        {data.groups.map((group, groupIdx) => (
+          <GroupRow key={groupIdx} group={group} groupIdx={groupIdx} shapes={sortedShapes} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+interface GroupRowProps {
+  group: ShapeGroup
+  groupIdx: number
+  shapes: ShapeDefinition[]
+}
+
+function GroupRow({ group, groupIdx, shapes }: GroupRowProps) {
   // Calculate the correct total LOCALLY from counts × values
-  // This protects us from Groq getting the total wrong
-  const calculatedTotal = sortedShapes.reduce((sum, shape) => {
+  const calculatedTotal = shapes.reduce((sum, shape) => {
     const count = group.counts[shape.name] || 0
     return sum + count * shape.value
   }, 0)
@@ -623,178 +653,111 @@ function DigitCompositionView({ data }: { data: PatternPuzzleExercise }) {
 
   const isCorrect = parseInt(answer) === calculatedTotal
 
-  // Dutch place value labels
-  const getPlaceLabel = (value: number): string => {
-    if (value === 10000) return 'Tienduizendtallen'
-    if (value === 1000) return 'Duizendtallen'
-    if (value === 100) return 'Honderdtallen'
-    if (value === 10) return 'Tientallen'
-    if (value === 1) return 'Eenheden'
-    return ''
-  }
-
   const reset = () => {
     setAnswer('')
     setChecked(false)
   }
 
   return (
-    <div className="space-y-8">
-      {/* Place value columns - each shape gets its own column */}
-      <div
-        className="grid gap-4"
-        style={{ gridTemplateColumns: `repeat(${sortedShapes.length}, minmax(0, 1fr))` }}
-      >
-        {sortedShapes.map((shape) => {
-          const count = group.counts[shape.name] || 0
-          return (
-            <div
-              key={shape.name}
-              className="bg-white rounded-xl border-2 border-zwijsen-primary-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-            >
-              {/* Header - place value label */}
-              <div className="bg-gradient-to-br from-zwijsen-primary-100 to-zwijsen-primary-50 px-3 py-2 border-b-2 border-zwijsen-primary-200">
-                <div className="text-center">
-                  <div className="text-xs font-bold text-zwijsen-primary-700 uppercase tracking-wide">
-                    {getPlaceLabel(shape.value)}
-                  </div>
-                  <div className="text-xs text-zwijsen-primary-600 font-semibold">
-                    1 = {shape.value}
-                  </div>
-                </div>
-              </div>
-
-              {/* Shapes grid */}
-              <div className="bg-gradient-to-br from-gray-50 to-white p-4 min-h-32 flex flex-wrap gap-2 justify-center items-center">
-                {count === 0 ? (
-                  <span className="text-gray-400 text-xs italic">(geen)</span>
-                ) : (
-                  Array(count)
-                    .fill(null)
-                    .map((_, j) => (
-                      <div
-                        key={j}
-                        className="transform transition-transform duration-200 hover:scale-125"
-                      >
-                        <ShapeVisualizer
-                          shape={shape.name}
-                          size={32}
-                          color="#A81D7B"
-                          filled
-                        />
-                      </div>
-                    ))
-                )}
-              </div>
-
-              {/* Calculation footer */}
-              <div className="bg-white border-t-2 border-gray-100 px-3 py-3 text-center">
-                <div className="text-sm font-bold text-gray-700">
-                  {count} × {shape.value}
-                </div>
-                <div className="text-lg font-bold text-zwijsen-primary-600 mt-1">
-                  = {count * shape.value}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Main answer row */}
-      <div className="bg-gradient-to-br from-zwijsen-primary-50 via-white to-zwijsen-accent-50 rounded-2xl p-6 md:p-8 border-2 border-zwijsen-primary-200">
-        <p className="text-base font-bold text-gray-800 mb-4 text-center">
-          💡 Tel alles bij elkaar op: wat is het getal?
-        </p>
-
-        {/* Sum equation */}
-        <div className="flex items-center justify-center gap-2 flex-wrap mb-4">
-          {sortedShapes.map((shape, i) => {
+    <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+      <div className="flex gap-6 items-start">
+        {/* Shapes - scattered like original workbook */}
+        <div className="flex-1 bg-gradient-to-br from-gray-50 to-white rounded-lg p-6 min-h-32 flex flex-wrap gap-3 content-start">
+          {shapes.map((shape) => {
             const count = group.counts[shape.name] || 0
-            return (
-              <span key={shape.name} className="flex items-center gap-2">
-                <span className="bg-white px-3 py-2 rounded-lg border-2 border-gray-200 font-bold text-lg text-gray-700">
-                  {count * shape.value}
-                </span>
-                {i < sortedShapes.length - 1 && (
-                  <span className="text-2xl font-bold text-gray-400">+</span>
-                )}
-              </span>
-            )
+            return Array(count)
+              .fill(null)
+              .map((_, j) => (
+                <div
+                  key={`${shape.name}-${j}`}
+                  className="transform transition-transform duration-200 hover:scale-125"
+                >
+                  <ShapeVisualizer
+                    shape={shape.name}
+                    size={36}
+                    color="#A81D7B"
+                    filled
+                  />
+                </div>
+              ))
           })}
-          <span className="text-2xl font-bold text-gray-400 mx-2">=</span>
-          <input
-            type="number"
-            value={answer}
-            onChange={(e) => {
-              setAnswer(e.target.value)
-              setChecked(false)
-            }}
-            inputMode="numeric"
-            className={clsx(
-              'w-40 px-4 py-3 text-center border-2 rounded-xl font-bold text-3xl',
-              'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zwijsen-primary-500',
-              !checked && 'border-zwijsen-primary-300 bg-white hover:border-zwijsen-primary-400',
-              checked &&
-                (isCorrect
-                  ? 'border-green-500 bg-green-50 text-green-700'
-                  : 'border-red-500 bg-red-50 text-red-700 shake')
-            )}
-            placeholder="?"
-            aria-label="Antwoord - het volledige getal"
-          />
+        </div>
+
+        {/* Total */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <span className="text-2xl font-bold text-gray-600">=</span>
+          {group.is_known ? (
+            <div className="px-6 py-3 bg-zwijsen-primary-100 text-zwijsen-primary-700 font-bold text-2xl rounded-lg border-2 border-zwijsen-primary-300 min-w-20 text-center">
+              {calculatedTotal}
+            </div>
+          ) : (
+            <input
+              type="number"
+              value={answer}
+              onChange={(e) => {
+                setAnswer(e.target.value)
+                setChecked(false)
+              }}
+              inputMode="numeric"
+              className={clsx(
+                'w-20 px-3 py-2 text-center border-2 rounded-lg font-bold text-xl',
+                'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zwijsen-primary-500',
+                !checked && 'border-gray-400 bg-white',
+                checked &&
+                  (isCorrect
+                    ? 'border-green-500 bg-green-50 text-green-700'
+                    : 'border-red-500 bg-red-50 text-red-700 shake')
+              )}
+              placeholder="?"
+              aria-label={`Antwoord groep ${groupIdx + 1}`}
+            />
+          )}
         </div>
       </div>
 
-      {/* Feedback */}
-      {checked && (
+      {/* Feedback for unknown groups */}
+      {!group.is_known && checked && (
         <div
           className={clsx(
-            'flex items-center gap-3 px-6 py-4 rounded-xl text-base font-bold transition-all duration-300',
+            'mt-4 flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold',
             isCorrect
-              ? 'bg-green-100 text-green-800 border-2 border-green-300 animate-pulse'
-              : 'bg-red-100 text-red-800 border-2 border-red-300'
+              ? 'bg-green-100 text-green-800 border border-green-300'
+              : 'bg-red-100 text-red-800 border border-red-300'
           )}
         >
           {isCorrect ? (
             <>
-              <CheckCircle size={24} className="flex-shrink-0" />
-              <span>Helemaal goed! Het getal is {calculatedTotal}. 🎉</span>
+              <CheckCircle size={18} className="flex-shrink-0" />
+              <span>Goed! Het getal is {calculatedTotal}.</span>
             </>
           ) : (
             <>
-              <XCircle size={24} className="flex-shrink-0" />
-              <span>Niet helemaal. Tel elke vorm nog eens en vermenigvuldig met de plaatswaarde.</span>
+              <XCircle size={18} className="flex-shrink-0" />
+              <span>Niet helemaal. Probeer opnieuw.</span>
             </>
           )}
         </div>
       )}
 
-      {/* Action buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={() => setChecked(true)}
-          disabled={!answer}
-          className="btn-primary flex-1 py-3 px-6 text-base font-bold"
-          aria-label="Controleer je antwoord"
-        >
-          Controleren
-        </button>
-        <button
-          onClick={reset}
-          className="btn-secondary py-3 px-6 flex items-center justify-center gap-2 font-bold"
-          aria-label="Zet het vak leeg"
-        >
-          <RotateCcw size={20} /> Opnieuw
-        </button>
-      </div>
-
-      {/* Help text */}
-      {!checked && (
-        <p className="text-sm text-gray-600 text-center font-medium">
-          💡 Tip: Elke vorm staat voor een plaatswaarde. Tel hoeveel er van elke vorm zijn en
-          vermenigvuldig met de plaatswaarde.
-        </p>
+      {/* Buttons for unknown groups */}
+      {!group.is_known && (
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => setChecked(true)}
+            disabled={!answer}
+            className="btn-primary text-sm py-2 px-4"
+            aria-label={`Controleer groep ${groupIdx + 1}`}
+          >
+            Controleren
+          </button>
+          <button
+            onClick={reset}
+            className="btn-secondary text-sm py-2 px-3 flex items-center gap-1"
+            aria-label={`Reset groep ${groupIdx + 1}`}
+          >
+            <RotateCcw size={14} />
+          </button>
+        </div>
       )}
     </div>
   )
