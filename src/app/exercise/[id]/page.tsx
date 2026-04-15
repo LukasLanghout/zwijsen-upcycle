@@ -117,32 +117,34 @@ export default function ExercisePage() {
   const contentValid = hasValidContent(activeContent)
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/library" className="btn-secondary flex items-center gap-2 text-sm py-1.5">
-          <ChevronLeft size={16} /> Bibliotheek
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold text-gray-900">Oefening {exercise.exercise_number}</h1>
-            <span className={clsx('badge', `badge-${exercise.question_type}`)}>
-              {QUESTION_TYPE_LABELS[exercise.question_type]}
-            </span>
-            {isVariant && <span className="badge bg-purple-100 text-[#A81D7B]">Variant</span>}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <Link href="/library" className="btn-secondary flex items-center gap-2 text-sm py-1.5">
+            <ChevronLeft size={16} /> Bibliotheek
+          </Link>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900">Oefening {exercise.exercise_number}</h1>
+              <span className={clsx('badge', `badge-${exercise.question_type}`)}>
+                {QUESTION_TYPE_LABELS[exercise.question_type]}
+              </span>
+              {isVariant && <span className="badge bg-purple-100 text-[#A81D7B]">Variant</span>}
+            </div>
+            <p className="text-sm text-gray-600 mt-1">
+              Blok {exercise.block} · Les {exercise.lesson}
+              {exercise.learning_goal && exercise.learning_goal !== 'Lesdoel text is missing'
+                ? ` · ${exercise.learning_goal}`
+                : ''}
+            </p>
           </div>
-          <p className="text-sm text-gray-500">
-            Blok {exercise.block} · Les {exercise.lesson}
-            {exercise.learning_goal && exercise.learning_goal !== 'Lesdoel text is missing'
-              ? ` · ${exercise.learning_goal}`
-              : ''}
-          </p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        {/* Sidebar */}
-        <div className="space-y-4">
+        {/* Responsive grid: 1 col mobile, 2 col tablet, 3 col desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          {/* Sidebar - 1 col on all sizes */}
+          <div className="lg:col-span-1 space-y-4">
           {/* Regenereer knop - toon altijd als content leeg is */}
           {!contentValid && (
             <div className="card border-2 border-orange-200 bg-orange-50 p-5">
@@ -241,8 +243,8 @@ export default function ExercisePage() {
           </div>
         </div>
 
-        {/* Main: interactive exercise */}
-        <div className="col-span-2">
+        {/* Main: interactive exercise - 3 cols on desktop, full width on mobile */}
+        <div className="lg:col-span-3 xl:col-span-4">
           {contentValid && activeContent ? (
             <InteractiveExercise exercise={activeContent} />
           ) : (
@@ -254,6 +256,7 @@ export default function ExercisePage() {
           )}
         </div>
       </div>
+    </div>
     </div>
   )
 }
