@@ -3,36 +3,123 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-[#FDF6FB] text-gray-900;
+    @apply bg-gradient-to-br from-[#FDF6FB] to-[#FFF8F5] text-gray-900 font-sans antialiased;
+  }
+
+  h1 {
+    @apply text-4xl font-bold tracking-tight text-gray-900;
+  }
+
+  h2 {
+    @apply text-3xl font-bold text-gray-900;
+  }
+
+  h3 {
+    @apply text-xl font-semibold text-gray-900;
+  }
+
+  p {
+    @apply text-base text-gray-700 leading-relaxed;
+  }
+
+  a {
+    @apply text-zwijsen-primary-500 transition-colors duration-150 hover:text-zwijsen-primary-600;
   }
 }
 
 @layer components {
-  /* Zwijsen magenta primary button */
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     BUTTONS - Improved with better sizing and states
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
   .btn-primary {
-    @apply bg-[#A81D7B] hover:bg-[#8A1664] text-white font-semibold px-4 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-zwijsen-primary-500 hover:bg-zwijsen-primary-600 text-white font-semibold
+           px-6 py-3 rounded-2xl transition-all duration-200
+           hover:shadow-lg hover:scale-[1.02]
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zwijsen-primary-500
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-sm
+           active:scale-[0.98] min-h-12;
   }
 
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-2xl border border-gray-200 transition-colors;
+    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium
+           px-6 py-3 rounded-2xl border border-gray-200 transition-all duration-200
+           hover:shadow-md
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400
+           disabled:opacity-50 disabled:cursor-not-allowed
+           active:scale-[0.98] min-h-12;
   }
 
   .btn-success {
-    @apply bg-[#5BAD6F] hover:bg-[#3D7A4E] text-white font-semibold px-4 py-2 rounded-2xl transition-colors;
+    @apply bg-zwijsen-success hover:bg-zwijsen-accent-600 text-white font-semibold
+           px-6 py-3 rounded-2xl transition-all duration-200
+           hover:shadow-lg hover:scale-[1.02]
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zwijsen-accent-500
+           disabled:opacity-50 disabled:cursor-not-allowed
+           active:scale-[0.98] min-h-12;
   }
 
   .btn-danger {
-    @apply bg-[#E63329] hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-2xl transition-colors;
+    @apply bg-red-600 hover:bg-red-700 text-white font-semibold
+           px-6 py-3 rounded-2xl transition-all duration-200
+           hover:shadow-lg hover:scale-[1.02]
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
+           disabled:opacity-50 disabled:cursor-not-allowed
+           active:scale-[0.98] min-h-12;
   }
 
-  /* Rounded cards - Zwijsen uses soft corners everywhere */
-  .card {
-    @apply bg-white rounded-2xl border border-purple-100 shadow-sm;
+  .btn-warning {
+    @apply bg-zwijsen-warning-500 hover:bg-zwijsen-warning-600 text-white font-semibold
+           px-6 py-3 rounded-2xl transition-all duration-200
+           hover:shadow-lg hover:scale-[1.02]
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zwijsen-warning-500
+           disabled:opacity-50 disabled:cursor-not-allowed
+           active:scale-[0.98] min-h-12;
   }
+
+  /* Small button variant */
+  .btn-sm {
+    @apply px-4 py-2 text-sm min-h-10;
+  }
+
+  /* Large button variant */
+  .btn-lg {
+    @apply px-8 py-4 text-lg min-h-14;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     CARDS & CONTAINERS
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm
+           hover:shadow-md transition-shadow duration-200;
+  }
+
+  .card-lg {
+    @apply card p-8;
+  }
+
+  .card-md {
+    @apply card p-6;
+  }
+
+  .card-sm {
+    @apply card p-4;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     BADGES & TAGS
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+    @apply inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold
+           tracking-wide transition-colors duration-150;
   }
 
   .badge-pending {
@@ -47,32 +134,104 @@
     @apply badge bg-red-100 text-red-800;
   }
 
-  /* Exercise type badges in Zwijsen logo colors */
+  /* Exercise type badges */
   .badge-fill_in {
     @apply badge bg-blue-100 text-blue-800;
   }
 
   .badge-structured_hte {
-    @apply badge bg-[#F3D6EB] text-[#A81D7B];
+    @apply badge bg-zwijsen-primary-100 text-zwijsen-primary-700;
   }
 
   .badge-creative {
-    @apply badge bg-orange-100 text-orange-800;
+    @apply badge bg-zwijsen-warning-100 text-zwijsen-warning-700;
   }
 
   .badge-pattern_puzzle {
-    @apply badge bg-yellow-100 text-yellow-800;
+    @apply badge bg-purple-100 text-purple-800;
   }
 
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     FORM ELEMENTS
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+  .input-base {
+    @apply px-4 py-3 rounded-lg border border-gray-300 text-base font-normal
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zwijsen-primary-500 focus:border-transparent
+           transition-all duration-150
+           placeholder:text-gray-400
+           disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+           min-h-11;
+  }
+
+  .input-sm {
+    @apply px-3 py-2 text-sm min-h-10;
+  }
+
+  .input-lg {
+    @apply px-5 py-4 text-lg min-h-14;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    @apply input-base;
+  }
+
+  textarea {
+    @apply resize-none;
+  }
+
+  /* Error state */
+  input.input-error,
+  select.input-error,
+  textarea.input-error {
+    @apply border-red-500 focus:ring-red-500;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     EXERCISE-SPECIFIC COMPONENTS
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
   .hte-box {
-    @apply w-10 h-10 border-2 border-purple-200 flex items-center justify-center rounded-xl font-bold text-lg;
+    @apply w-12 h-12 border-2 border-zwijsen-primary-200 flex items-center justify-center
+           rounded-xl font-bold text-lg bg-white
+           focus:outline-none focus:ring-2 focus:ring-zwijsen-primary-500 focus:border-transparent
+           transition-all duration-150;
   }
 
   .hte-header {
-    @apply w-10 h-8 bg-[#5BAD6F] text-white flex items-center justify-center rounded-xl font-bold text-sm;
+    @apply w-12 h-10 bg-zwijsen-accent-500 text-white flex items-center justify-center
+           rounded-lg font-bold text-sm;
   }
 
   .answer-input {
-    @apply w-16 h-10 border-2 border-[#A81D7B] rounded-xl text-center font-bold text-lg focus:outline-none focus:ring-2 focus:ring-[#A81D7B] focus:border-transparent;
+    @apply w-16 h-12 border-2 border-zwijsen-primary-300 rounded-xl text-center font-bold text-lg
+           bg-white hover:border-zwijsen-primary-400
+           focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-zwijsen-primary-500 focus:border-transparent
+           transition-all duration-150;
+  }
+
+  .answer-input:disabled {
+    @apply bg-gray-50 text-gray-400 cursor-not-allowed;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     UTILITY CLASSES
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-zwijsen-primary-500 to-zwijsen-accent-500 bg-clip-text text-transparent;
+  }
+
+  .loading-shimmer {
+    @apply animate-shimmer bg-gradient-to-r from-gray-100 via-white to-gray-100 bg-[length:200%_100%];
+  }
+
+  .group-hover\:shadow-lg:hover {
+    @apply shadow-lg;
   }
 }
