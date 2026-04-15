@@ -8,41 +8,79 @@ const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert at analyzing Dutch eleme
 
 Analyze this page image and return ALL exercises fully extracted AND transformed for interactive use in ONE response.
 
-CRITICAL SUB-EXERCISE RULE:
-Many exercises on Zwijsen pages contain multiple sub-questions under one numbered heading.
-Example: Exercise "1" says "Splits. Schrijf de som op." and has 2 H-T-E boxes below it (763 and 954).
-That is TWO sub-exercises: "1a" (763) and "1b" (954).
-Example: Exercise "3" says "Splits. Schrijf de som op." with 2 H-T-E boxes, then "Voeg samen. Schrijf de som op." with 4 given-number boxes. That is 6 sub-exercises: "3a", "3b", "3c", "3d", "3e", "3f".
+CRITICAL SUB-EXERCISE DETECTION RULES:
+=====================================
 
-You MUST output ONE entry per sub-exercise:
-- exercise_number: the combined label, e.g. "1a", "1b", "3c"
-- parent_exercise_number: the base number, e.g. "1", "3", "#6"
-- sub_exercise_letter: the letter, e.g. "a", "b", "c"
+1. ONE DATABASE ENTRY PER SUB-QUESTION, NOT PER NUMBERED EXERCISE
+   - A numbered exercise (like "1" or "2") may contain MULTIPLE sub-questions
+   - Each sub-question becomes a separate database entry with letters: 1a, 1b, 1c, etc.
+   - This is true even if sub-questions appear on different pages (they get grouped later)
 
-If the exercise has only ONE question under its heading, still emit it with sub_exercise_letter "a" and exercise_number "1a".
+2. VISUAL INDICATORS OF MULTIPLE SUB-QUESTIONS:
+   - Multiple empty boxes/grids below one instruction (each box = one sub-question)
+   - Multiple number values listed (e.g. "763, 954, 502" = three sub-questions)
+   - Repeating instruction text with different numbers
+   - Instructions with different sub-parts or bullet points
 
-For each sub-exercise identify:
+3. DETAILED EXAMPLES:
+
+   Example A: Single instruction + 2 grids = 2 sub-exercises
+   "1 Splits. Schrijf de som op."
+   [Grid: 763] [Grid: 954]
+   OUTPUT: "1a" (763) and "1b" (954) - SEPARATE ENTRIES
+
+   Example B: Single instruction + 4 given numbers = 4 sub-exercises
+   "2 Voeg samen."
+   100 + 200 + 3 = ___
+   200 + 30 + 4 = ___
+   300 + 40 + 5 = ___
+   400 + 50 + 6 = ___
+   OUTPUT: "2a", "2b", "2c", "2d" - SEPARATE ENTRIES
+
+   Example C: Complex instruction with multiple parts = 6 sub-exercises
+   "3 Splits. Schrijf de som op." [2 grids]
+      "Voeg samen. Schrijf de som op." [4 given-number fields]
+   OUTPUT: "3a", "3b" (splits), then "3c", "3d", "3e", "3f" (voeg samen)
+
+   Example D: Exercise with only 1 item still gets a letter
+   "4 Maak de som."
+   [1 grid: 500]
+   OUTPUT: "4a" (NOT just "4") - ALWAYS include the letter
+
+4. DETECTING INSTRUCTION GROUPS:
+   - Instructions like "Splits" vs "Voeg samen" may apply to multiple numbers
+   - Read the instruction once, then count how many input/output pairs follow
+   - Each number/grid = one sub-exercise under that instruction
+
+5. HANDLING REPEATED ELEMENTS:
+   - If you see "Splits" with multiple grids: count the grids (not the word)
+   - Each empty box/blank = one sub-exercise, even if layout suggests otherwise
+
+MANDATORY OUTPUTS:
+==================
+For each sub-exercise you identify, output ONE JSON entry with:
+- exercise_number: "1a", "2b", "3c", etc. (ALWAYS include letter)
+- parent_exercise_number: "1", "2", "3", etc. (base number without letter)
+- sub_exercise_letter: "a", "b", "c", etc.
 - question_type: "fill_in" | "structured_hte" | "creative" | "pattern_puzzle"
-  - fill_in: equation like "763 = ___ + ___ + ___"
-  - structured_hte: H (hundreds) T (tens) E (ones) grid boxes, one number per grid
-  - creative: make combinations from given digits
-  - pattern_puzzle: figure out shape values
-- instruction: the Dutch instruction text for this sub-exercise
-- given_numbers: numbers shown (fill_in / structured_hte) for THIS sub-exercise only
-- available_digits: digits shown (creative)
-- raw_text: all text in the sub-exercise
+- instruction: the instruction text for this sub-exercise
+- given_numbers: [number] for THIS sub-exercise ONLY (single-element array)
+- raw_text: all visible text in the sub-exercise
 
-Also extract page metadata: block, lesson, learning_goal (Lesdoel text).
-
-For transformed_content, populate ONLY the field matching the question_type:
+For transformed_content:
 - fill_in: { number, answer: [H*100, T*10, E], labels: ["H","T","E"] }
-- structured_hte: { mode: "split"|"combine", numbers: [{H,T,E},...] }
-  IMPORTANT: for sub-exercises, numbers has exactly ONE element. Multiple grids = multiple sub-exercises.
+- structured_hte: { mode: "split"|"combine", numbers: [{H,T,E}] } - always 1 element
 - creative: { digits: [...], num_combinations: N, valid_combinations: [{H,T,E},...] }
 - pattern_puzzle: { shapes: [{name,value},...], groups: [{counts:{shape:N},total,is_known},...] }
 
-Set difficulty_level: 1 = numbers 100-499, 2 = 500-799, 3 = 800-999.
+Set difficulty_level: 1 = 100-499, 2 = 500-799, 3 = 800-999.
 
+PAGE METADATA:
+==============
+Also extract: block, lesson, learning_goal (Lesdoel text)
+
+RETURN FORMAT:
+==============
 Return ONLY valid JSON:
 {
   "block": "1",

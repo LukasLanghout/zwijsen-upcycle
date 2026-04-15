@@ -2,6 +2,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { extractAndTransformPage } from '@/lib/groq'
 
+// Group exercises by parent number and reassign sub-exercise letters sequentially
+function normalizeSubExercises(exercises: any[]): any[] {
+  // Group by parent_exercise_number
+  const grouped: Record<string, any[]> = {}
+
+  for (const exercise of exercises) {
+    const parent = exercise.parent_exercise_number as string
+    if (!grouped[parent]) {
+      grouped[parent] = []
+    }
+    grouped[parent].push(exercise)
+  }
+
+  // Reassign letters sequentially within each parent group
+  const normalized: any[] = []
+  const letters = 'abcdefghijklmnopqrstuvwxyz'
+
+  for (const parent of Object.keys(grouped).sort()) {
+    const items = grouped[parent]
+    // Sort by page number to maintain order
+    items.sort((a: any, b: any) => (a.page_number ?? 0) - (b.page_number ?? 0))
+
+    // Assign letters a, b, c, d, etc.
+    items.forEach((item: any, index: number) => {
+      const letter = letters[index] || 'z'
+      normalized.push({
+        ...item,
+        sub_exercise_letter: letter,
+        exercise_number: `${parent}${letter}`,
+      })
+    })
+  }
+
+  return normalized
+}
+
 // Accepts base64 page images rendered client-side via pdf.js in the browser.
 // Body: { uploadId: string, pageImages: Array<{ pageNum: number, base64: string }> }
 export async function POST(req: NextRequest) {
@@ -77,10 +113,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (exercisesToInsert.length > 0) {
+    // POST-PROCESSING: Group exercises by parent and reassign sub-exercise letters
+    // This ensures that even if sub-exercises are scattered across pages or
+    // numbered inconsistently by the AI, they get properly grouped and renumbered
+    const normalizedExercises = normalizeSubExercises(exercisesToInsert)
+
+    if (normalizedExercises.length > 0) {
       const { error: insertError } = await supabaseAdmin
         .from('exercises')
-        .insert(exercisesToInsert)
+        .insert(normalizedExercises)
 
       if (insertError) {
         console.error('Insert error:', insertError)
@@ -91,7 +132,7 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin.from('pdf_uploads').update({ status: 'completed' }).eq('id', uploadId)
 
-    return NextResponse.json({ success: true, exercisesExtracted: exercisesToInsert.length })
+    return NextResponse.json({ success: true, exercisesExtracted: normalizedExercises.length })
   } catch (err) {
     console.error('Extraction error:', err)
     return NextResponse.json({ error: 'Extractie mislukt' }, { status: 500 })
