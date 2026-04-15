@@ -9,6 +9,8 @@ import type {
   CreativeExercise,
   PatternPuzzleExercise,
   HTENumber,
+  ShapeGroup,
+  ShapeDefinition,
 } from '@/lib/types'
 import { ShapeVisualizer } from './ShapeVisualizer'
 import clsx from 'clsx'
