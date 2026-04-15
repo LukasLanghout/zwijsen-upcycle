@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -27,7 +27,8 @@ interface ExerciseResult {
 
 type LessonPhase = 'loading' | 'exercise' | 'results'
 
-export default function LessonPage() {
+// Separate component that uses useSearchParams
+function LessonContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -316,5 +317,14 @@ export default function LessonPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// Wrap in Suspense boundary as required by Next.js 14 for useSearchParams
+export default function LessonPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin" size={48} /></div>}>
+      <LessonContent />
+    </Suspense>
   )
 }
