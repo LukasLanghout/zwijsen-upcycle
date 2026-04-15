@@ -11,35 +11,61 @@ const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert Dutch elementary school 
 - Students must count shapes and find their values
 - This is a TOP PRIORITY - extract them correctly!
 
-PATTERN PUZZLE TYPES:
-====================
+⚠️ CRITICAL: DIGIT COMPOSITION PUZZLES (NEW!)
+==============================================
 
-Type A: EQUATION PUZZLES
-- Shows: 3 hearts + 1 circle + 2 squares + 2 triangles = 241
-- Student must find each shape's value
-- Structure: individual shapes with a final total
-- Extract as: one group with all shapes and their counts, total = 241, is_known = true
+This is NOT a pattern puzzle - it's a PLACE VALUE composition exercise!
 
-Type B: GROUP PUZZLES
-- Shows multiple groups: Group 1: [3 hearts, 2 squares] = 16
-- Each group has a known total
-- Student solves system of equations
-- Extract as: multiple groups, each with counts and known total
+Example: 7 triangles + 1 heart + 2 squares + 3 circles = 7123
+Means:
+- 7 triangles = 7 × 1000 (thousands place)
+- 1 heart = 1 × 100 (hundreds place)
+- 2 squares = 2 × 10 (tens place)
+- 3 circles = 3 × 1 (ones place)
+- Result: 7123
 
-Type C: MISSING TOTAL PUZZLES
-- Shows groups with some known totals, some unknown
-- Student calculates missing totals
-- Extract with is_known = false/true per group
+RECOGNITION SIGNS:
+- Shapes arranged to be COUNTED, not compared
+- A visual grid/collection of shapes
+- Final number that's clearly a place-value composition
+- Example: 7 shapes + 1 shape + 2 shapes + 3 shapes = 7123
 
-🎯 WHEN YOU SEE A LIST OF SHAPES WITH A FINAL NUMBER:
-- If format is: [shapes listed vertically] then = [number]
-- This is Type A: one group with all shapes
-- Structure:
-  {
-    "counts": {"heart": 3, "circle": 1, "square": 2, "triangle": 2},
-    "total": 241,
-    "is_known": true
+EXTRACT AS: structured_hte TYPE but with place values!
+{
+  "question_type": "structured_hte",
+  "instruction": "Wat is het getal?",
+  "structured_hte": {
+    "mode": "combine",
+    "numbers": [
+      {
+        "D": 7,    // Duizenden (thousands)
+        "H": 1,    // Honderdtallen (hundreds)
+        "T": 2,    // Tientallen (tens)
+        "E": 3     // Eenheden (ones)
+      }
+    ]
   }
+}
+
+Or if truly pattern-like:
+{
+  "question_type": "pattern_puzzle",
+  "pattern_puzzle": {
+    "shapes": [
+      {"name": "triangle", "value": 1000},
+      {"name": "heart", "value": 100},
+      {"name": "square", "value": 10},
+      {"name": "circle", "value": 1}
+    ],
+    "groups": [
+      {
+        "counts": {"triangle": 7, "heart": 1, "square": 2, "circle": 3},
+        "total": 7123,
+        "is_known": true
+      }
+    ]
+  }
+}
 ======================================
 
 When you see a pattern puzzle exercise:
