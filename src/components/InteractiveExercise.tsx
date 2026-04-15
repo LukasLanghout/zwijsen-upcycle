@@ -70,14 +70,20 @@ export default function InteractiveExercise({ exercise }: Props) {
 function FillInExerciseView({ data }: { data: FillInExercise }) {
   const [answers, setAnswers] = useState<string[]>(data.answer.map(() => ''))
   const [checked, setChecked] = useState(false)
+  const [touched, setTouched] = useState<boolean[]>(data.answer.map(() => false))
 
   const check = () => setChecked(true)
-  const reset = () => { setAnswers(data.answer.map(() => '')); setChecked(false) }
+  const reset = () => {
+    setAnswers(data.answer.map(() => ''))
+    setChecked(false)
+    setTouched(data.answer.map(() => false))
+  }
 
   // Check per vak: accepteer zowel de plaatswaarde (700) als het cijfer (7) voor H
   const placeValues = [100, 10, 1]
   const isCorrect = (i: number) => {
     const entered = parseInt(answers[i])
+    if (isNaN(entered)) return false
     const stored = data.answer[i]
     // Exacte match (700) of cijfer-match (7) op de juiste positie
     return entered === stored || entered === stored * placeValues[i]
@@ -87,6 +93,9 @@ function FillInExerciseView({ data }: { data: FillInExercise }) {
   const allCorrect =
     answers.every((a) => a !== '') &&
     answers.reduce((sum, a) => sum + parseInt(a || '0'), 0) === data.number
+
+  // Check partial progress for real-time feedback
+  const isPartialComplete = answers.some((a) => a !== '')
 
   return (
     <div>
@@ -107,12 +116,26 @@ function FillInExerciseView({ data }: { data: FillInExercise }) {
                     const next = [...answers]
                     next[i] = e.target.value
                     setAnswers(next)
-                    setChecked(false)
+                    // Mark as touched for real-time feedback
+                    const nextTouched = [...touched]
+                    nextTouched[i] = true
+                    setTouched(nextTouched)
+                  }}
+                  onBlur={() => {
+                    const nextTouched = [...touched]
+                    nextTouched[i] = true
+                    setTouched(nextTouched)
                   }}
                   inputMode="numeric"
                   className={clsx(
-                    'answer-input text-2xl text-center font-bold w-24',
+                    'answer-input text-2xl text-center font-bold w-24 transition-colors duration-200',
                     'hover:border-zwijsen-primary-400',
+                    // Real-time feedback while typing (only show after touched)
+                    touched[i] && answers[i] !== '' && (isCorrect(i)
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-red-500 bg-red-50 text-red-700'
+                    ),
+                    // After check button clicked
                     checked && (isCorrect(i)
                       ? 'border-green-500 bg-green-50 text-green-700'
                       : 'border-red-500 bg-red-50 text-red-700 shake'

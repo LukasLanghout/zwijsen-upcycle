@@ -26,7 +26,7 @@ export default async function DashboardPage() {
       <div className="text-center mb-16">
         <div className="inline-flex items-center gap-2 bg-zwijsen-primary-100 text-zwijsen-primary-600 px-4 py-2.5 rounded-full text-sm font-bold mb-6 tracking-wide">
           <Zap size={16} className="animate-pulse" />
-          Proof of Concept
+          Prototype
         </div>
         <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
           Upcycling van <span className="text-gradient">Leercontent</span>
