@@ -10,6 +10,7 @@ import type {
   PatternPuzzleExercise,
   HTENumber,
 } from '@/lib/types'
+import { ShapeVisualizer } from './ShapeVisualizer'
 import clsx from 'clsx'
 
 interface Props {
@@ -346,10 +347,22 @@ function CreativeView({ data }: { data: CreativeExercise }) {
 
 // ── Pattern Puzzle ───────────────────────────────────────────
 const SHAPE_EMOJIS: Record<string, string> = {
+  // English names
   circle: '●',
   square: '■',
   heart: '♥',
   triangle: '▲',
+  star: '★',
+  diamond: '◆',
+  pentagon: '⬠',
+  // Dutch names
+  cirkel: '●',
+  vierkant: '■',
+  hart: '♥',
+  driehoek: '▲',
+  ster: '★',
+  ruit: '◆',
+  vijfhoek: '⬠',
 }
 
 function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
@@ -392,13 +405,11 @@ function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
       {/* Shape value inputs */}
       <div className="mb-4">
         <p className="text-sm text-gray-600 font-medium mb-2">Wat zijn de figuren waard?</p>
-        <div className="flex gap-4">
+        <div className="flex gap-6 flex-wrap">
           {data.shapes.map((shape) => (
-            <div key={shape.name} className="flex items-center gap-2">
-              <span className="text-2xl">
-                {SHAPE_EMOJIS[shape.name] || shape.name}
-              </span>
-              <span>=</span>
+            <div key={shape.name} className="flex items-center gap-3">
+              <ShapeVisualizer shape={shape.name} size={48} color="#A81D7B" filled />
+              <span className="text-lg font-semibold">=</span>
               <input
                 type="number"
                 value={shapeAnswers[shape.name]}
@@ -423,20 +434,24 @@ function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
       {/* Group totals */}
       <div className="grid grid-cols-2 gap-3">
         {data.groups.map((group, i) => (
-          <div key={i} className="bg-gray-50 rounded-lg p-3">
-            <div className="flex flex-wrap gap-1 mb-2">
+          <div key={i} className="bg-gray-50 rounded-lg p-4">
+            <div className="flex flex-wrap gap-2 mb-3">
               {Object.entries(group.counts).map(([shape, count]) =>
                 Array(count)
                   .fill(null)
                   .map((_, j) => (
-                    <span key={`${shape}-${j}`} className="text-xl">
-                      {SHAPE_EMOJIS[shape] || shape}
-                    </span>
+                    <ShapeVisualizer
+                      key={`${shape}-${j}`}
+                      shape={shape}
+                      size={32}
+                      color="#A81D7B"
+                      filled
+                    />
                   ))
               )}
             </div>
             <div className="flex items-center gap-2 text-sm font-medium">
-              <span>=</span>
+              <span className="text-gray-600">=</span>
               {group.is_known ? (
                 <span className="font-bold text-zwijsen-blue bg-zwijsen-blue-light px-2 py-0.5 rounded">
                   {group.total}
