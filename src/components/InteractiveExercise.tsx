@@ -17,9 +17,13 @@ import clsx from 'clsx'
 
 interface Props {
   exercise: TransformedExercise
+  /** Quiz mode: called when student submits an answer. Receives whether it was correct. */
+  onComplete?: (correct: boolean) => void
+  /** Hide the reset button in quiz mode */
+  quizMode?: boolean
 }
 
-export default function InteractiveExercise({ exercise }: Props) {
+export default function InteractiveExercise({ exercise, onComplete, quizMode = false }: Props) {
   return (
     <div className="card p-8 md:p-10 border-0 shadow-lg">
       {/* Instruction - Improved Typography with hint for specific types */}
@@ -48,31 +52,39 @@ export default function InteractiveExercise({ exercise }: Props) {
       {/* Exercise Content */}
       <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 md:p-10 border-2 border-gray-100">
         {exercise.question_type === 'fill_in' && exercise.fill_in && (
-          <FillInExerciseView data={exercise.fill_in} />
+          <FillInExerciseView data={exercise.fill_in} onComplete={onComplete} quizMode={quizMode} />
         )}
         {exercise.question_type === 'structured_hte' && exercise.structured_hte && (
-          <StructuredHTEView data={exercise.structured_hte} />
+          <StructuredHTEView data={exercise.structured_hte} onComplete={onComplete} quizMode={quizMode} />
         )}
         {exercise.question_type === 'creative' && exercise.creative && (
-          <CreativeView data={exercise.creative} />
+          <CreativeView data={exercise.creative} onComplete={onComplete} quizMode={quizMode} />
         )}
         {exercise.question_type === 'pattern_puzzle' && exercise.pattern_puzzle && (
           isDigitCompositionPuzzle(exercise.pattern_puzzle)
-            ? <DigitCompositionView data={exercise.pattern_puzzle} />
-            : <PatternPuzzleView data={exercise.pattern_puzzle} />
+            ? <DigitCompositionView data={exercise.pattern_puzzle} onComplete={onComplete} quizMode={quizMode} />
+            : <PatternPuzzleView data={exercise.pattern_puzzle} onComplete={onComplete} quizMode={quizMode} />
         )}
       </div>
     </div>
   )
 }
 
+interface SubProps {
+  onComplete?: (correct: boolean) => void
+  quizMode?: boolean
+}
+
 // ── Fill-in Exercise ─────────────────────────────────────────
-function FillInExerciseView({ data }: { data: FillInExercise }) {
+function FillInExerciseView({ data, onComplete, quizMode = false }: { data: FillInExercise } & SubProps) {
   const [answers, setAnswers] = useState<string[]>(data.answer.map(() => ''))
   const [checked, setChecked] = useState(false)
   const [touched, setTouched] = useState<boolean[]>(data.answer.map(() => false))
 
-  const check = () => setChecked(true)
+  const check = () => {
+    setChecked(true)
+    onComplete?.(allCorrect)
+  }
   const reset = () => {
     setAnswers(data.answer.map(() => ''))
     setChecked(false)
@@ -221,19 +233,17 @@ function FillInExerciseView({ data }: { data: FillInExercise }) {
 }
 
 // ── Structured H-T-E Exercise ───────────────────────────────
-function StructuredHTEView({ data }: { data: StructuredHTEExercise }) {
-  const isSplit = data.mode === 'split'
-
+function StructuredHTEView({ data, onComplete, quizMode = false }: { data: StructuredHTEExercise } & SubProps) {
   return (
     <div className="space-y-6">
       {data.numbers.map((num, i) => (
-        <HTERow key={i} number={num} mode={data.mode} />
+        <HTERow key={i} number={num} mode={data.mode} onComplete={onComplete} quizMode={quizMode} />
       ))}
     </div>
   )
 }
 
-function HTERow({ number, mode }: { number: HTENumber; mode: 'split' | 'combine' }) {
+function HTERow({ number, mode, onComplete, quizMode = false }: { number: HTENumber; mode: 'split' | 'combine' } & SubProps) {
   const isSplit = mode === 'split'
   const fullNumber = number.H * 100 + number.T * 10 + number.E
 
@@ -382,22 +392,24 @@ function HTERow({ number, mode }: { number: HTENumber; mode: 'split' | 'combine'
       {/* Action buttons */}
       <div className="flex gap-2 mt-4">
         <button
-          onClick={() => setChecked(true)}
+          onClick={() => { setChecked(true); onComplete?.(allCorrect) }}
           disabled={expectedKeys.some((k) => !answers[k])}
           className="btn-primary text-sm py-2 px-4"
         >
           Controleren
         </button>
-        <button onClick={reset} className="btn-secondary text-xs py-1 px-2 flex items-center gap-1">
-          <RotateCcw size={12} />
-        </button>
+        {!quizMode && (
+          <button onClick={reset} className="btn-secondary text-xs py-1 px-2 flex items-center gap-1">
+            <RotateCcw size={12} />
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
 // ── Creative Exercise ────────────────────────────────────────
-function CreativeView({ data }: { data: CreativeExercise }) {
+function CreativeView({ data, onComplete, quizMode = false }: { data: CreativeExercise } & SubProps) {
   const [combinations, setCombinations] = useState<string[][]>(
     Array(data.num_combinations).fill(null).map(() => ['', '', ''])
   )
@@ -474,12 +486,17 @@ function CreativeView({ data }: { data: CreativeExercise }) {
       </div>
 
       <div className="flex gap-2 mt-4">
-        <button onClick={() => setChecked(true)} className="btn-primary text-sm py-1.5 px-4">
+        <button
+          onClick={() => { setChecked(true); onComplete?.(combinations.every(isValidCombination)) }}
+          className="btn-primary text-sm py-1.5 px-4"
+        >
           Controleren
         </button>
-        <button onClick={reset} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1">
-          <RotateCcw size={14} /> Opnieuw
-        </button>
+        {!quizMode && (
+          <button onClick={reset} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1">
+            <RotateCcw size={14} /> Opnieuw
+          </button>
+        )}
       </div>
     </div>
   )
@@ -519,7 +536,7 @@ function isDigitCompositionPuzzle(data: PatternPuzzleExercise): boolean {
   return uniqueValues.size === data.shapes.length
 }
 
-function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
+function PatternPuzzleView({ data, onComplete, quizMode = false }: { data: PatternPuzzleExercise } & SubProps) {
   const [shapeAnswers, setShapeAnswers] = useState<Record<string, string>>(
     Object.fromEntries(data.shapes.map((s) => [s.name, '']))
   )
@@ -669,19 +686,21 @@ function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
       {/* Action buttons */}
       <div className="flex gap-3">
         <button
-          onClick={() => setChecked(true)}
+          onClick={() => { setChecked(true); onComplete?.(allCorrect) }}
           className="btn-primary flex-1 py-3 px-6 text-base font-bold"
           aria-label="Controleer je antwoorden"
         >
           Controleren
         </button>
-        <button
-          onClick={reset}
-          className="btn-secondary py-3 px-6 flex items-center justify-center gap-2 font-bold"
-          aria-label="Zet alles leeg"
-        >
-          <RotateCcw size={20} /> Opnieuw
-        </button>
+        {!quizMode && (
+          <button
+            onClick={reset}
+            className="btn-secondary py-3 px-6 flex items-center justify-center gap-2 font-bold"
+            aria-label="Zet alles leeg"
+          >
+            <RotateCcw size={20} /> Opnieuw
+          </button>
+        )}
       </div>
     </div>
   )
@@ -694,7 +713,7 @@ function PatternPuzzleView({ data }: { data: PatternPuzzleExercise }) {
 //  - square   = 10   (tientallen)
 //  - circle   = 1    (eenheden)
 // Layout mimics original Zwijsen workbook: legend on left, groups on right
-function DigitCompositionView({ data }: { data: PatternPuzzleExercise }) {
+function DigitCompositionView({ data, onComplete, quizMode = false }: { data: PatternPuzzleExercise } & SubProps) {
   // Sort shapes by place value DESC (thousands first)
   const sortedShapes = [...data.shapes].sort((a, b) => b.value - a.value)
 
@@ -717,20 +736,20 @@ function DigitCompositionView({ data }: { data: PatternPuzzleExercise }) {
       {/* Groups */}
       <div className="space-y-6">
         {data.groups.map((group, groupIdx) => (
-          <GroupRow key={groupIdx} group={group} groupIdx={groupIdx} shapes={sortedShapes} />
+          <GroupRow key={groupIdx} group={group} groupIdx={groupIdx} shapes={sortedShapes} onComplete={onComplete} quizMode={quizMode} />
         ))}
       </div>
     </div>
   )
 }
 
-interface GroupRowProps {
+interface GroupRowProps extends SubProps {
   group: ShapeGroup
   groupIdx: number
   shapes: ShapeDefinition[]
 }
 
-function GroupRow({ group, groupIdx, shapes }: GroupRowProps) {
+function GroupRow({ group, groupIdx, shapes, onComplete, quizMode = false }: GroupRowProps) {
   // Calculate the correct total LOCALLY from counts × values
   const calculatedTotal = shapes.reduce((sum, shape) => {
     const count = group.counts[shape.name] || 0
@@ -832,20 +851,22 @@ function GroupRow({ group, groupIdx, shapes }: GroupRowProps) {
       {!group.is_known && (
         <div className="mt-4 flex gap-2">
           <button
-            onClick={() => setChecked(true)}
+            onClick={() => { setChecked(true); onComplete?.(isCorrect) }}
             disabled={!answer}
             className="btn-primary text-sm py-2 px-4"
             aria-label={`Controleer groep ${groupIdx + 1}`}
           >
             Controleren
           </button>
-          <button
-            onClick={reset}
-            className="btn-secondary text-sm py-2 px-3 flex items-center gap-1"
-            aria-label={`Reset groep ${groupIdx + 1}`}
-          >
-            <RotateCcw size={14} />
-          </button>
+          {!quizMode && (
+            <button
+              onClick={reset}
+              className="btn-secondary text-sm py-2 px-3 flex items-center gap-1"
+              aria-label={`Reset groep ${groupIdx + 1}`}
+            >
+              <RotateCcw size={14} />
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Search, Filter, BookOpen, ChevronRight, Zap } from 'lucide-react'
+import { Search, Filter, BookOpen, ChevronRight, Zap, GraduationCap } from 'lucide-react'
 import type { Exercise, QuestionType, DifficultyLevel, ExerciseStatus } from '@/lib/types'
 import { SUBJECTS, GRADES } from '@/lib/types'
 import clsx from 'clsx'
@@ -66,10 +66,21 @@ export default function LibraryPage() {
             {exercises.length} oefeningen beschikbaar
           </p>
         </div>
-        <Link href="/upload" className="btn-primary flex items-center justify-center gap-2 md:min-w-max">
-          <BookOpen size={20} />
-          <span>Nieuwe PDF uploaden</span>
-        </Link>
+        <div className="flex gap-3 flex-wrap">
+          <Link
+            href={`/lesson?${new URLSearchParams(
+              Object.fromEntries(Object.entries({ questionType: filters.questionType, difficulty: filters.difficulty, subject: filters.subject }).filter(([, v]) => v))
+            )}`}
+            className="btn-success flex items-center justify-center gap-2 md:min-w-max"
+          >
+            <GraduationCap size={20} />
+            <span>Start les</span>
+          </Link>
+          <Link href="/upload" className="btn-primary flex items-center justify-center gap-2 md:min-w-max">
+            <BookOpen size={20} />
+            <span>Nieuwe PDF uploaden</span>
+          </Link>
+        </div>
       </div>
 
       {/* Filters - Improved */}
