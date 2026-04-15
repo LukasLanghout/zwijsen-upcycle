@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { extractAndTransformPage } from '@/lib/groq'
+import { normalizePatternPuzzle } from '@/lib/normalize-puzzle'
 
 // Group exercises by parent number and reassign sub-exercise letters sequentially
 function normalizeSubExercises(exercises: any[]): any[] {
@@ -94,6 +95,9 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // Normalize pattern puzzle totals to ensure they match counts × values
+        const normalizedContent = normalizePatternPuzzle(exercise.transformed_content)
+
         exercisesToInsert.push({
           pdf_upload_id: uploadId,
           page_number: pageNum,
@@ -107,7 +111,7 @@ export async function POST(req: NextRequest) {
           topic: subject || 'Rekenen',
           learning_goal: result.learning_goal,
           original_content: exercise,
-          transformed_content: exercise.transformed_content ?? null,
+          transformed_content: normalizedContent ?? null,
           status: 'pending',
         })
       }

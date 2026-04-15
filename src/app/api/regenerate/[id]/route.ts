@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { extractAndTransformPage } from '@/lib/groq'
+import { normalizePatternPuzzle } from '@/lib/normalize-puzzle'
 
 // Re-runs the transformation for a single exercise using its original_content
 export async function POST(
@@ -64,13 +65,16 @@ Only fill the field matching the question_type.`
 
     const transformed = JSON.parse(content)
 
+    // Normalize pattern puzzle totals so count × value math stays consistent
+    const normalized = normalizePatternPuzzle(transformed)
+
     // Save to database
     await supabaseAdmin
       .from('exercises')
-      .update({ transformed_content: transformed })
+      .update({ transformed_content: normalized })
       .eq('id', params.id)
 
-    return NextResponse.json({ transformed_content: transformed })
+    return NextResponse.json({ transformed_content: normalized })
   } catch (err) {
     console.error('Regenerate error:', err)
     return NextResponse.json({ error: 'Regenereren mislukt' }, { status: 500 })
