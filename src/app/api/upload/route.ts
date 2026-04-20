@@ -1,29 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, STORAGE_BUCKET } from '@/lib/supabase'
 
+// Receives only JSON metadata — the PDF itself is uploaded directly from the browser
+// using the signed URL returned here, so this route never touches the raw file.
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData()
-    const file = formData.get('file') as File
-    const subject = (formData.get('subject') as string | null) || null
-    const grade = (formData.get('grade') as string | null) || null
+    const { filename, subject, grade } = await req.json()
 
-    if (!file) {
-      return NextResponse.json({ error: 'Geen bestand ontvangen' }, { status: 400 })
+    if (!filename) {
+      return NextResponse.json({ error: 'Bestandsnaam ontbreekt' }, { status: 400 })
     }
 
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'Alleen PDF-bestanden zijn toegestaan' }, { status: 400 })
-    }
-
-    // Create a record in pdf_uploads first
+    // Create DB record
     const { data: uploadRecord, error: dbError } = await supabaseAdmin
       .from('pdf_uploads')
       .insert({
-        filename: file.name,
-        storage_path: '', // Will update after upload
-        subject,
-        grade,
+        filename,
+        storage_path: '',
+        subject: subject || null,
+        grade: grade || null,
         status: 'processing',
       })
       .select()
@@ -34,33 +29,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database fout' }, { status: 500 })
     }
 
-    // Upload the PDF to Supabase Storage
-    const storagePath = `${uploadRecord.id}/${file.name}`
-    const fileBuffer = await file.arrayBuffer()
+    const storagePath = `${uploadRecord.id}/${filename}`
 
-    const { error: storageError } = await supabaseAdmin.storage
+    // Generate a signed upload URL so the browser can PUT the file directly to Supabase
+    const { data: signedData, error: signedError } = await supabaseAdmin.storage
       .from(STORAGE_BUCKET)
-      .upload(storagePath, fileBuffer, {
-        contentType: 'application/pdf',
-        upsert: false,
-      })
+      .createSignedUploadUrl(storagePath)
 
-    if (storageError) {
-      console.error('Storage error:', storageError)
-      // Clean up the db record
+    if (signedError || !signedData) {
+      console.error('Signed URL error:', signedError)
       await supabaseAdmin.from('pdf_uploads').delete().eq('id', uploadRecord.id)
-      return NextResponse.json({ error: 'Upload naar storage mislukt' }, { status: 500 })
+      return NextResponse.json({ error: 'Kon geen upload-URL aanmaken' }, { status: 500 })
     }
 
-    // Update the record with the storage path
+    // Store the storage path now (file isn't uploaded yet but path is known)
     await supabaseAdmin
       .from('pdf_uploads')
       .update({ storage_path: storagePath })
       .eq('id', uploadRecord.id)
 
-    // Return uploadId + storagePath so client can do PDF-to-image conversion
-    // and send images to /api/extract directly (avoids server-side canvas dependency)
-    return NextResponse.json({ uploadId: uploadRecord.id, storagePath, subject, grade })
+    return NextResponse.json({
+      uploadId: uploadRecord.id,
+      storagePath,
+      signedUrl: signedData.signedUrl,
+      token: signedData.token,
+    })
   } catch (err) {
     console.error('Upload error:', err)
     return NextResponse.json({ error: 'Onverwachte fout' }, { status: 500 })

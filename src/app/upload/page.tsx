@@ -6,6 +6,7 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, FileText, Loader2, AlertCircle, BookOpen, GraduationCap, ArrowRight, ArrowLeft, Check } from 'lucide-react'
 import clsx from 'clsx'
 import { SUBJECTS, GRADES } from '@/lib/types'
+import { supabase, STORAGE_BUCKET } from '@/lib/supabase'
 
 type Step = 'metadata' | 'upload' | 'processing'
 
@@ -42,11 +43,9 @@ async function pdfToPageImages(
   return images
 }
 
-// Split an array into chunks of size n
-function chunk<T>(arr: T[], n: number): T[][] {
-  const chunks: T[][] = []
-  for (let i = 0; i < arr.length; i += n) chunks.push(arr.slice(i, i + n))
-  return chunks
+// Safely parse JSON — returns null instead of throwing when the body is plain text (e.g. a 413 page)
+async function safeJson(res: Response): Promise<Record<string, string> | null> {
+  try { return await res.json() } catch { return null }
 }
 
 export default function UploadPage() {
@@ -82,44 +81,42 @@ export default function UploadPage() {
     setError(null)
 
     try {
-      // Step 1: Upload PDF to Supabase Storage with metadata
-      setUploadStep('PDF uploaden...')
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('subject', subject)
-      formData.append('grade', grade)
-
-      const uploadRes = await fetch('/api/upload', {
+      // Step 1: Register upload in DB + get a signed URL for direct browser → Supabase upload
+      setUploadStep('Upload voorbereiden...')
+      const metaRes = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, subject, grade }),
       })
-
-      if (!uploadRes.ok) {
-        const data = await uploadRes.json()
-        throw new Error(data.error || 'Upload mislukt')
+      if (!metaRes.ok) {
+        const data = await safeJson(metaRes)
+        throw new Error(data?.error || 'Registreren mislukt')
       }
+      const { uploadId, storagePath, token } = await metaRes.json()
 
-      const { uploadId } = await uploadRes.json()
+      // Step 2: Upload PDF directly from browser to Supabase Storage (bypasses server size limits)
+      setUploadStep('PDF uploaden naar opslag...')
+      const { error: storageError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .uploadToSignedUrl(storagePath, token, file, { contentType: 'application/pdf' })
+      if (storageError) throw new Error(`Opslag mislukt: ${storageError.message}`)
 
-      // Step 2: Convert PDF pages to images in the browser (with progress)
+      // Step 3: Convert PDF pages to JPEG images in the browser
       const pageImages = await pdfToPageImages(file, (current, total) => {
-        setUploadStep(`Pagina ${current} van ${total} verwerken...`)
+        setUploadStep(`Pagina ${current} van ${total} omzetten...`)
       })
 
-      // Step 3: Send images in batches of 5 pages to stay well under request size limits
-      const batches = chunk(pageImages, 5)
-      for (let i = 0; i < batches.length; i++) {
-        setUploadStep(`AI analyseert pagina's ${i * 5 + 1}–${Math.min((i + 1) * 5, pageImages.length)} van ${pageImages.length}...`)
-
+      // Step 4: Send pages ONE AT A TIME to /api/extract (keeps each request ~300-500 KB)
+      for (let i = 0; i < pageImages.length; i++) {
+        setUploadStep(`AI analyseert pagina ${i + 1} van ${pageImages.length}...`)
         const extractRes = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uploadId, pageImages: batches[i] }),
+          body: JSON.stringify({ uploadId, pageImages: [pageImages[i]] }),
         })
-
         if (!extractRes.ok) {
-          const data = await extractRes.json()
-          throw new Error(data.error || 'Extractie mislukt')
+          const data = await safeJson(extractRes)
+          throw new Error(data?.error || `Extractie pagina ${i + 1} mislukt`)
         }
       }
 
