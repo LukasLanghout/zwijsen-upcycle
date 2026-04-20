@@ -9,19 +9,17 @@ import InteractiveExercise from '@/components/InteractiveExercise'
 import clsx from 'clsx'
 
 const QUESTION_TYPE_LABELS: Record<string, string> = {
-  fill_in: 'Invulvraag',
-  structured_hte: 'H-T-E Structuur',
-  creative: 'Creatief',
-  pattern_puzzle: 'Patroonpuzzel',
+  flashcard: 'Woordkaart',
+  multiple_choice: 'Meerkeuzevraag',
+  cloze: 'Invulzin',
 }
 
 function hasValidContent(content: TransformedExercise | null): boolean {
   if (!content) return false
   switch (content.question_type) {
-    case 'fill_in': return !!content.fill_in?.number
-    case 'structured_hte': return !!content.structured_hte?.numbers?.length
-    case 'creative': return !!content.creative?.digits?.length
-    case 'pattern_puzzle': return !!content.pattern_puzzle?.shapes?.length
+    case 'flashcard': return !!content.flashcard?.word
+    case 'multiple_choice': return !!content.multiple_choice?.word && (content.multiple_choice?.options?.length ?? 0) > 0
+    case 'cloze': return !!content.cloze?.answer && !!content.cloze?.sentence_with_blank
     default: return false
   }
 }

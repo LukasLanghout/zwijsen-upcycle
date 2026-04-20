@@ -1,69 +1,49 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, XCircle, RotateCcw } from 'lucide-react'
+import { CheckCircle, XCircle, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import type {
   TransformedExercise,
-  FillInExercise,
-  StructuredHTEExercise,
-  CreativeExercise,
-  PatternPuzzleExercise,
-  HTENumber,
-  ShapeGroup,
-  ShapeDefinition,
+  FlashcardExercise,
+  MultipleChoiceExercise,
+  ClozeExercise,
 } from '@/lib/types'
-import { ShapeVisualizer } from './ShapeVisualizer'
 import clsx from 'clsx'
 
 interface Props {
   exercise: TransformedExercise
-  /** Quiz mode: called when student submits an answer. Receives whether it was correct. */
   onComplete?: (correct: boolean) => void
-  /** Hide the reset button in quiz mode */
   quizMode?: boolean
 }
 
 export default function InteractiveExercise({ exercise, onComplete, quizMode = false }: Props) {
   return (
     <div className="card p-8 md:p-10 border-0 shadow-lg">
-      {/* Instruction - Improved Typography with hint for specific types */}
       <div className="mb-10 pb-8 border-b-2 border-gray-100">
         <p className="text-2xl font-bold text-gray-900 leading-relaxed">
           {exercise.instruction}
         </p>
-        {/* Type-specific helpful hints */}
-        {exercise.question_type === 'structured_hte' && (
+        {exercise.question_type === 'flashcard' && (
           <p className="text-sm text-zwijsen-primary-600 mt-4 pl-4 border-l-4 border-zwijsen-primary-300 font-medium">
-            💡 <strong>Tip:</strong> Schrijf het getal in de juiste vakken. Je kunt zowel de plaatswaarde (700) als het cijfer (7) invullen.
+            💡 <strong>Tip:</strong> Probeer de definitie te onthouden voordat je de kaart omdraait.
           </p>
         )}
-        {exercise.question_type === 'fill_in' && (
+        {exercise.question_type === 'cloze' && (
           <p className="text-sm text-zwijsen-primary-600 mt-4 pl-4 border-l-4 border-zwijsen-primary-300 font-medium">
-            💡 <strong>Tip:</strong> Splits het getal in honderdtallen, tientallen en eenheden.
-          </p>
-        )}
-        {exercise.question_type === 'pattern_puzzle' && (
-          <p className="text-sm text-zwijsen-primary-600 mt-4 pl-4 border-l-4 border-zwijsen-primary-300 font-medium">
-            💡 <strong>Tip:</strong> Kijk eerst welke symbolen welke waarde hebben, dan reken je uit wat het getal is.
+            💡 <strong>Tip:</strong> Lees de definitie als hint als je het woord niet weet.
           </p>
         )}
       </div>
 
-      {/* Exercise Content */}
       <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 md:p-10 border-2 border-gray-100">
-        {exercise.question_type === 'fill_in' && exercise.fill_in && (
-          <FillInExerciseView data={exercise.fill_in} onComplete={onComplete} quizMode={quizMode} />
+        {exercise.question_type === 'flashcard' && exercise.flashcard && (
+          <FlashcardView data={exercise.flashcard} onComplete={onComplete} quizMode={quizMode} />
         )}
-        {exercise.question_type === 'structured_hte' && exercise.structured_hte && (
-          <StructuredHTEView data={exercise.structured_hte} onComplete={onComplete} quizMode={quizMode} />
+        {exercise.question_type === 'multiple_choice' && exercise.multiple_choice && (
+          <MultipleChoiceView data={exercise.multiple_choice} onComplete={onComplete} quizMode={quizMode} />
         )}
-        {exercise.question_type === 'creative' && exercise.creative && (
-          <CreativeView data={exercise.creative} onComplete={onComplete} quizMode={quizMode} />
-        )}
-        {exercise.question_type === 'pattern_puzzle' && exercise.pattern_puzzle && (
-          isDigitCompositionPuzzle(exercise.pattern_puzzle)
-            ? <DigitCompositionView data={exercise.pattern_puzzle} onComplete={onComplete} quizMode={quizMode} />
-            : <PatternPuzzleView data={exercise.pattern_puzzle} onComplete={onComplete} quizMode={quizMode} />
+        {exercise.question_type === 'cloze' && exercise.cloze && (
+          <ClozeView data={exercise.cloze} onComplete={onComplete} quizMode={quizMode} />
         )}
       </div>
     </div>
@@ -75,426 +55,256 @@ interface SubProps {
   quizMode?: boolean
 }
 
-// ── Fill-in Exercise ─────────────────────────────────────────
-function FillInExerciseView({ data, onComplete, quizMode = false }: { data: FillInExercise } & SubProps) {
-  const [answers, setAnswers] = useState<string[]>(data.answer.map(() => ''))
-  const [checked, setChecked] = useState(false)
-  const [touched, setTouched] = useState<boolean[]>(data.answer.map(() => false))
+const WORD_TYPE_LABELS: Record<string, string> = {
+  zelfstandig_naamwoord: 'zelfstandig naamwoord',
+  werkwoord: 'werkwoord',
+  bijvoeglijk_naamwoord: 'bijvoeglijk naamwoord',
+  uitdrukking: 'uitdrukking',
+  overig: 'woord',
+}
 
-  const check = () => {
-    setChecked(true)
-    onComplete?.(allCorrect)
+// ── Flashcard ────────────────────────────────────────────────
+function FlashcardView({ data, onComplete, quizMode = false }: { data: FlashcardExercise } & SubProps) {
+  const [flipped, setFlipped] = useState(false)
+  const [answered, setAnswered] = useState<boolean | null>(null)
+
+  const handleAnswer = (correct: boolean) => {
+    setAnswered(correct)
+    onComplete?.(correct)
   }
+
   const reset = () => {
-    setAnswers(data.answer.map(() => ''))
-    setChecked(false)
-    setTouched(data.answer.map(() => false))
+    setFlipped(false)
+    setAnswered(null)
   }
-
-  // Check per vak: accepteer zowel de plaatswaarde (700) als het cijfer (7) voor H
-  const placeValues = [100, 10, 1]
-  const isCorrect = (i: number) => {
-    const entered = parseInt(answers[i])
-    if (isNaN(entered)) return false
-    const stored = data.answer[i]
-    // Exacte match (700) of cijfer-match (7) op de juiste positie
-    return entered === stored || entered === stored * placeValues[i]
-  }
-
-  // Hoofdcheck: som van ingevulde waarden moet gelijk zijn aan het getal
-  const allCorrect =
-    answers.every((a) => a !== '') &&
-    answers.reduce((sum, a) => sum + parseInt(a || '0'), 0) === data.number
-
-  // Check partial progress for real-time feedback
-  const isPartialComplete = answers.some((a) => a !== '')
 
   return (
-    <div>
-      {/* Main equation - all on one line */}
-      <div className="mb-8 p-6 bg-white rounded-xl border-2 border-gray-100 overflow-x-auto">
-        <div className="flex items-center gap-3 justify-center min-w-fit">
-          <span className="bg-gradient-to-br from-zwijsen-primary-100 to-zwijsen-primary-50 text-zwijsen-primary-600 px-6 py-3 rounded-xl font-bold text-3xl md:text-4xl shadow-sm flex-shrink-0">
-            {data.number}
-          </span>
-          <span className="text-3xl md:text-4xl font-bold text-gray-400 flex-shrink-0">=</span>
-          <div className="flex items-center gap-3 flex-nowrap">
-            {data.answer.map((_, i) => (
-              <span key={i} className="flex items-center gap-2 flex-shrink-0">
-                <input
-                  type="number"
-                  value={answers[i]}
-                  onChange={(e) => {
-                    const next = [...answers]
-                    next[i] = e.target.value
-                    setAnswers(next)
-                    // Mark as touched for real-time feedback
-                    const nextTouched = [...touched]
-                    nextTouched[i] = true
-                    setTouched(nextTouched)
-                  }}
-                  onBlur={() => {
-                    const nextTouched = [...touched]
-                    nextTouched[i] = true
-                    setTouched(nextTouched)
-                  }}
-                  inputMode="numeric"
-                  className={clsx(
-                    'answer-input text-2xl text-center font-bold w-24 transition-colors duration-200',
-                    'hover:border-zwijsen-primary-400',
-                    // Real-time feedback while typing (only show after touched)
-                    touched[i] && answers[i] !== '' && (isCorrect(i)
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-red-500 bg-red-50 text-red-700'
-                    ),
-                    // After check button clicked
-                    checked && (isCorrect(i)
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-red-500 bg-red-50 text-red-700 shake'
-                    )
-                  )}
-                  placeholder="?"
-                  aria-label={`Vak ${i + 1}`}
-                />
-                {data.labels[i] && (
-                  <span className="text-sm font-semibold text-gray-600 ml-1 flex-shrink-0">
-                    {data.labels[i]}
-                  </span>
-                )}
-                {i < data.answer.length - 1 && <span className="text-2xl text-gray-300 flex-shrink-0">+</span>}
-              </span>
-            ))}
+    <div className="flex flex-col items-center gap-8">
+      {/* Card */}
+      <div
+        className={clsx(
+          'w-full max-w-lg rounded-2xl border-2 cursor-pointer transition-all duration-300 select-none',
+          flipped
+            ? 'bg-zwijsen-primary-50 border-zwijsen-primary-300 shadow-lg'
+            : 'bg-white border-gray-200 shadow-md hover:shadow-lg hover:border-zwijsen-primary-200'
+        )}
+        onClick={() => setFlipped(!flipped)}
+      >
+        {!flipped ? (
+          /* Voorkant: het woord */
+          <div className="p-10 flex flex-col items-center gap-4 min-h-48 justify-center">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              {WORD_TYPE_LABELS[data.word_type] ?? data.word_type}
+            </span>
+            <p className="text-4xl font-bold text-gray-900 text-center">{data.word}</p>
+            <div className="flex items-center gap-2 text-sm text-gray-400 mt-4">
+              <Eye size={16} />
+              <span>Klik om de definitie te zien</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Achterkant: definitie + voorbeeldzin */
+          <div className="p-10 flex flex-col gap-6 min-h-48">
+            <div>
+              <p className="text-xs font-bold text-zwijsen-primary-500 uppercase tracking-widest mb-2">
+                Definitie
+              </p>
+              <p className="text-2xl font-bold text-gray-900">{data.definition}</p>
+            </div>
+            <div className="border-t border-zwijsen-primary-200 pt-4">
+              <p className="text-xs font-bold text-zwijsen-primary-500 uppercase tracking-widest mb-2">
+                Voorbeeld
+              </p>
+              <p className="text-lg text-gray-700 italic">{data.example_sentence}</p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-zwijsen-primary-400 mt-2">
+              <EyeOff size={14} />
+              <span>Klik om terug te draaien</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Feedback message with animation */}
-      {checked && (
-        <div
-          className={clsx(
-            'mb-8 flex items-center gap-4 px-6 py-4 rounded-2xl text-base font-bold transition-all duration-300 border-2',
-            allCorrect
-              ? 'bg-green-50 text-green-800 border-green-300 shadow-lg'
-              : 'bg-red-50 text-red-800 border-red-300 shadow-md'
-          )}
-        >
-          {allCorrect ? (
+      {/* Zelfbeoordeling na omdraaien */}
+      {flipped && answered === null && (
+        <div className="flex flex-col items-center gap-3 w-full max-w-lg">
+          <p className="text-sm font-semibold text-gray-600">Wist je het?</p>
+          <div className="flex gap-4 w-full">
+            <button
+              onClick={() => handleAnswer(false)}
+              className="flex-1 py-4 px-6 rounded-xl border-2 border-red-200 bg-red-50 text-red-700 font-bold hover:bg-red-100 hover:border-red-300 transition-all flex items-center justify-center gap-2"
+            >
+              <XCircle size={20} /> Nee, nog oefenen
+            </button>
+            <button
+              onClick={() => handleAnswer(true)}
+              className="flex-1 py-4 px-6 rounded-xl border-2 border-green-200 bg-green-50 text-green-700 font-bold hover:bg-green-100 hover:border-green-300 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={20} /> Ja, ik wist het!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Resultaat */}
+      {answered !== null && (
+        <div className={clsx(
+          'w-full max-w-lg flex items-center gap-4 px-6 py-4 rounded-2xl font-bold border-2',
+          answered
+            ? 'bg-green-50 text-green-800 border-green-300'
+            : 'bg-orange-50 text-orange-800 border-orange-300'
+        )}>
+          {answered ? (
             <>
-              <div className="text-green-600 flex-shrink-0">
-                <CheckCircle size={28} />
-              </div>
+              <CheckCircle size={24} className="flex-shrink-0 text-green-600" />
               <div>
-                <p className="font-bold text-lg">Uitstekend! 🎉</p>
-                <p className="text-sm text-green-700 font-medium">Je hebt het goed opgelost! Goed gedaan!</p>
+                <p className="font-bold">Goed gedaan! 🎉</p>
+                <p className="text-sm font-medium opacity-80">Je kende de definitie al.</p>
               </div>
             </>
           ) : (
             <>
-              <div className="text-red-600 flex-shrink-0">
-                <XCircle size={28} />
-              </div>
+              <RotateCcw size={24} className="flex-shrink-0 text-orange-600" />
               <div>
-                <p className="font-bold text-lg">Niet helemaal</p>
-                <p className="text-sm text-red-700 font-medium">Kijk naar de vakken in rood en probeer opnieuw.</p>
+                <p className="font-bold">Blijven oefenen!</p>
+                <p className="text-sm font-medium opacity-80">Dit woord nog een keer bekijken.</p>
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* Action buttons - Improved */}
-      <div className="flex gap-3 mt-10">
+      {!quizMode && answered !== null && (
         <button
-          onClick={check}
-          disabled={answers.some((a) => a === '')}
-          className="btn-primary flex-1 md:flex-none py-4 px-8 text-base font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-          aria-label="Controleer je antwoord"
+          onClick={reset}
+          className="btn-secondary py-3 px-6 flex items-center gap-2 font-bold"
+        >
+          <RotateCcw size={16} /> Opnieuw
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Multiple Choice ──────────────────────────────────────────
+function MultipleChoiceView({ data, onComplete, quizMode = false }: { data: MultipleChoiceExercise } & SubProps) {
+  const [selected, setSelected] = useState<number | null>(null)
+  const [checked, setChecked] = useState(false)
+
+  const isCorrect = selected === data.correct_index
+
+  const reset = () => {
+    setSelected(null)
+    setChecked(false)
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Het woord */}
+      <div className="text-center py-6 px-8 bg-white rounded-2xl border-2 border-gray-200 shadow-sm">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+          {WORD_TYPE_LABELS[data.word_type] ?? data.word_type}
+        </p>
+        <p className="text-4xl font-bold text-gray-900">{data.word}</p>
+      </div>
+
+      {/* Opties */}
+      <div className="grid gap-3">
+        {data.options.map((option, i) => {
+          const isSelected = selected === i
+          const showResult = checked
+          const isThisCorrect = i === data.correct_index
+
+          return (
+            <button
+              key={i}
+              onClick={() => {
+                if (!checked) setSelected(i)
+              }}
+              disabled={checked}
+              className={clsx(
+                'w-full text-left px-6 py-4 rounded-xl border-2 font-medium text-base transition-all duration-200',
+                // Default state
+                !isSelected && !showResult && 'bg-white border-gray-200 hover:border-zwijsen-primary-300 hover:bg-zwijsen-primary-50',
+                // Selected but not checked
+                isSelected && !showResult && 'bg-zwijsen-primary-50 border-zwijsen-primary-400 text-zwijsen-primary-700 font-bold',
+                // After check: correct option
+                showResult && isThisCorrect && 'bg-green-50 border-green-500 text-green-800 font-bold',
+                // After check: wrong selected option
+                showResult && isSelected && !isThisCorrect && 'bg-red-50 border-red-500 text-red-800 font-bold',
+                // After check: other unselected options
+                showResult && !isSelected && !isThisCorrect && 'bg-gray-50 border-gray-200 text-gray-400',
+              )}
+            >
+              <div className="flex items-center gap-4">
+                <span className={clsx(
+                  'w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0',
+                  !showResult && isSelected ? 'border-zwijsen-primary-500 bg-zwijsen-primary-500 text-white' : '',
+                  !showResult && !isSelected ? 'border-gray-300 text-gray-400' : '',
+                  showResult && isThisCorrect ? 'border-green-500 bg-green-500 text-white' : '',
+                  showResult && isSelected && !isThisCorrect ? 'border-red-500 bg-red-500 text-white' : '',
+                  showResult && !isSelected && !isThisCorrect ? 'border-gray-200 text-gray-300' : '',
+                )}>
+                  {showResult && isThisCorrect ? '✓' : showResult && isSelected && !isThisCorrect ? '✗' : String.fromCharCode(65 + i)}
+                </span>
+                <span>{option}</span>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Feedback */}
+      {checked && (
+        <div className={clsx(
+          'flex items-center gap-4 px-6 py-4 rounded-2xl font-bold border-2',
+          isCorrect ? 'bg-green-50 text-green-800 border-green-300' : 'bg-red-50 text-red-800 border-red-300'
+        )}>
+          {isCorrect ? (
+            <>
+              <CheckCircle size={24} className="flex-shrink-0 text-green-600" />
+              <div>
+                <p className="font-bold">Uitstekend! 🎉</p>
+                <p className="text-sm font-medium opacity-80">Je koos de juiste definitie.</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <XCircle size={24} className="flex-shrink-0 text-red-600" />
+              <div>
+                <p className="font-bold">Niet helemaal.</p>
+                <p className="text-sm font-medium opacity-80">
+                  Het juiste antwoord was: <em>"{data.options[data.correct_index]}"</em>
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Voorbeeld na feedback */}
+      {checked && (
+        <div className="px-5 py-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+          <span className="font-bold">Voorbeeld: </span>
+          <span className="italic">{data.example_sentence}</span>
+        </div>
+      )}
+
+      {/* Knoppen */}
+      <div className="flex gap-3 mt-2">
+        <button
+          onClick={() => { setChecked(true); onComplete?.(isCorrect) }}
+          disabled={selected === null || checked}
+          className="btn-primary flex-1 md:flex-none py-4 px-8 text-base font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           ✓ Controleren
         </button>
-        <button
-          onClick={reset}
-          className="btn-secondary py-4 px-6 flex items-center justify-center gap-2 font-bold transition-all duration-200"
-          aria-label="Zet alle vakken leeg"
-        >
-          <RotateCcw size={18} />
-          <span>Opnieuw</span>
-        </button>
-      </div>
-
-      {/* Help text */}
-      {!checked && (
-        <p className="text-sm text-gray-600 mt-6 text-center font-medium">
-          💡 Tip: Je kunt het getal verdelen in honderdtallen, tientallen en eenheden
-        </p>
-      )}
-    </div>
-  )
-}
-
-// ── Structured H-T-E Exercise ───────────────────────────────
-function StructuredHTEView({ data, onComplete, quizMode = false }: { data: StructuredHTEExercise } & SubProps) {
-  return (
-    <div className="space-y-6">
-      {data.numbers.map((num, i) => (
-        <HTERow key={i} number={num} mode={data.mode} onComplete={onComplete} quizMode={quizMode} />
-      ))}
-    </div>
-  )
-}
-
-function HTERow({ number, mode, onComplete, quizMode = false }: { number: HTENumber; mode: 'split' | 'combine' } & SubProps) {
-  const isSplit = mode === 'split'
-  const fullNumber = number.H * 100 + number.T * 10 + number.E
-
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [checked, setChecked] = useState(false)
-
-  const expectedKeys = isSplit ? ['H', 'T', 'E'] : ['total']
-
-  const isCorrect = (key: string) => {
-    const entered = parseInt(answers[key] || '')
-    if (!isSplit) return entered === fullNumber
-    // Voor split: accepteer plaatswaarde (700) of cijfer (7)
-    if (key === 'H') return entered === number.H * 100 || entered === number.H
-    if (key === 'T') return entered === number.T * 10  || entered === number.T
-    if (key === 'E') return entered === number.E
-    return false
-  }
-
-  // Hoofdcheck voor split: som van ingevulde waarden == volledig getal
-  const allCorrect = isSplit
-    ? expectedKeys.every((k) => answers[k] !== '') &&
-      (parseInt(answers['H'] || '0') + parseInt(answers['T'] || '0') + parseInt(answers['E'] || '0')) === fullNumber
-    : isCorrect('total')
-
-  const reset = () => { setAnswers({}); setChecked(false) }
-
-  const labels = {
-    H: { nl: 'Honderdtallen', en: 'H' },
-    T: { nl: 'Tientallen', en: 'T' },
-    E: { nl: 'Eenheden', en: 'E' },
-  }
-
-  return (
-    <div className="bg-white rounded-xl p-6 border-2 border-gray-200">
-      {/* H-T-E header boxes with Dutch labels */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {(['H', 'T', 'E'] as const).map((key) => (
-          <div key={key} className="flex flex-col items-center">
-            <div className="text-xs font-bold text-zwijsen-primary-600 uppercase tracking-wide mb-2">
-              {labels[key].nl}
-            </div>
-            <div className="hte-header">{key}</div>
-            {isSplit ? (
-              <div className="hte-box text-zwijsen-primary-700 font-bold mt-2 bg-zwijsen-primary-50">
-                {key === 'H' ? Math.floor(fullNumber / 100) :
-                  key === 'T' ? Math.floor((fullNumber % 100) / 10) :
-                    fullNumber % 10}
-              </div>
-            ) : (
-              <div className="hte-box bg-gray-100 mt-2">
-                {key === 'H' ? number.H :
-                  key === 'T' ? number.T :
-                    number.E}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Equation row */}
-      <div className="flex items-center gap-3 text-lg font-semibold flex-wrap justify-center px-4">
-        {isSplit ? (
-          <>
-            <span className="text-zwijsen-primary-700 font-bold text-2xl">{fullNumber}</span>
-            <span className="text-gray-400 text-2xl">=</span>
-            {(['H', 'T', 'E'] as const).map((key, i) => (
-              <span key={key} className="flex items-center gap-1">
-                <div className="flex flex-col items-center">
-                  <input
-                    type="number"
-                    value={answers[key] ?? ''}
-                    onChange={(e) => {
-                      setAnswers((a) => ({ ...a, [key]: e.target.value }))
-                      setChecked(false)
-                    }}
-                    className={clsx(
-                      'px-4 py-3 border-2 rounded-xl font-bold text-2xl text-center min-h-14',
-                      'border-zwijsen-primary-300 bg-white hover:border-zwijsen-primary-400',
-                      'focus:outline-none focus:ring-2 focus:ring-zwijsen-primary-500 focus:border-transparent',
-                      'transition-all duration-200',
-                      checked && (isCorrect(key)
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-red-500 bg-red-50 text-red-700'
-                      )
-                    )}
-                    placeholder="?"
-                    aria-label={labels[key].nl}
-                  />
-                  <span className="text-xs font-semibold text-gray-600 mt-2">{labels[key].nl}</span>
-                </div>
-                {i < 2 && <span className="text-gray-400 text-xl mx-1">+</span>}
-              </span>
-            ))}
-          </>
-        ) : (
-          <>
-            <span className="font-bold text-2xl">{number.H * 100}</span>
-            <span className="text-gray-400 text-2xl">+</span>
-            <span className="font-bold text-2xl">{number.T * 10}</span>
-            <span className="text-gray-400 text-2xl">+</span>
-            <span className="font-bold text-2xl">{number.E}</span>
-            <span className="text-gray-400 text-2xl">=</span>
-            <div className="flex flex-col items-center">
-              <input
-                type="number"
-                value={answers['total'] ?? ''}
-                onChange={(e) => {
-                  setAnswers({ total: e.target.value })
-                  setChecked(false)
-                }}
-                className={clsx(
-                  'answer-input w-20 text-2xl',
-                  checked && (isCorrect('total') ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
-                )}
-                placeholder="?"
-                aria-label="Totaal getal"
-              />
-              <span className="text-xs text-gray-500 mt-1">Totaal</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Feedback message */}
-      {checked && (
-        <div className={clsx(
-          'mt-4 flex items-center gap-3 px-4 py-3 rounded-lg text-base font-bold transition-all',
-          allCorrect
-            ? 'bg-green-100 text-green-800 border-2 border-green-300'
-            : 'bg-red-100 text-red-800 border-2 border-red-300'
-        )}>
-          {allCorrect ? (
-            <>
-              <CheckCircle size={18} className="flex-shrink-0" />
-              <span>Prima! Het antwoord klopt! ✓</span>
-            </>
-          ) : (
-            <>
-              <XCircle size={18} className="flex-shrink-0" />
-              <span>Niet helemaal. Controleer je antwoorden en probeer opnieuw.</span>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex gap-2 mt-4">
-        <button
-          onClick={() => { setChecked(true); onComplete?.(allCorrect) }}
-          disabled={expectedKeys.some((k) => !answers[k])}
-          className="btn-primary text-sm py-2 px-4"
-        >
-          Controleren
-        </button>
-        {!quizMode && (
-          <button onClick={reset} className="btn-secondary text-xs py-1 px-2 flex items-center gap-1">
-            <RotateCcw size={12} />
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Creative Exercise ────────────────────────────────────────
-function CreativeView({ data, onComplete, quizMode = false }: { data: CreativeExercise } & SubProps) {
-  const [combinations, setCombinations] = useState<string[][]>(
-    Array(data.num_combinations).fill(null).map(() => ['', '', ''])
-  )
-  const [checked, setChecked] = useState(false)
-
-  const isValidCombination = (combo: string[]) => {
-    const digits = combo.map(Number)
-    if (digits.some(isNaN)) return false
-    if (digits.some((d) => d < 0 || d > 9)) return false
-    // Check all digits are from the available set
-    const available = [...data.digits]
-    for (const d of digits) {
-      const idx = available.indexOf(d)
-      if (idx === -1) return false
-      available.splice(idx, 1)
-    }
-    return true
-  }
-
-  const reset = () => {
-    setCombinations(Array(data.num_combinations).fill(null).map(() => ['', '', '']))
-    setChecked(false)
-  }
-
-  return (
-    <div>
-      <div className="flex gap-2 mb-4">
-        <span className="text-sm text-gray-600 font-medium">Beschikbare cijfers:</span>
-        {data.digits.map((d, i) => (
-          <span
-            key={i}
-            className="w-8 h-8 border-2 border-zwijsen-pink bg-zwijsen-pink-light text-zwijsen-pink flex items-center justify-center rounded font-bold"
+        {!quizMode && checked && (
+          <button
+            onClick={reset}
+            className="btn-secondary py-4 px-6 flex items-center justify-center gap-2 font-bold"
           >
-            {d}
-          </span>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {combinations.map((combo, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="text-sm text-gray-400 w-4">{i + 1}.</span>
-            {combo.map((val, j) => (
-              <input
-                key={j}
-                type="number"
-                min="0"
-                max="9"
-                value={val}
-                onChange={(e) => {
-                  const next = combinations.map((c, ci) =>
-                    ci === i ? c.map((v, vi) => (vi === j ? e.target.value : v)) : c
-                  )
-                  setCombinations(next)
-                  setChecked(false)
-                }}
-                className={clsx(
-                  'answer-input',
-                  checked &&
-                    (isValidCombination(combo)
-                      ? 'border-green-400 bg-green-50'
-                      : 'border-red-400 bg-red-50')
-                )}
-                placeholder="?"
-              />
-            ))}
-            {checked && (
-              isValidCombination(combo)
-                ? <CheckCircle size={16} className="text-green-500" />
-                : <XCircle size={16} className="text-red-400" />
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button
-          onClick={() => { setChecked(true); onComplete?.(combinations.every(isValidCombination)) }}
-          className="btn-primary text-sm py-1.5 px-4"
-        >
-          Controleren
-        </button>
-        {!quizMode && (
-          <button onClick={reset} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1">
-            <RotateCcw size={14} /> Opnieuw
+            <RotateCcw size={18} /> Opnieuw
           </button>
         )}
       </div>
@@ -502,373 +312,166 @@ function CreativeView({ data, onComplete, quizMode = false }: { data: CreativeEx
   )
 }
 
-// ── Pattern Puzzle ───────────────────────────────────────────
-const SHAPE_EMOJIS: Record<string, string> = {
-  // English names
-  circle: '●',
-  square: '■',
-  heart: '♥',
-  triangle: '▲',
-  star: '★',
-  diamond: '◆',
-  pentagon: '⬠',
-  // Dutch names
-  cirkel: '●',
-  vierkant: '■',
-  hart: '♥',
-  driehoek: '▲',
-  ster: '★',
-  ruit: '◆',
-  vijfhoek: '⬠',
-}
-
-// Detect if this is a place-value digit composition puzzle
-// e.g. 7 triangles (×1000) + 1 heart (×100) + 2 squares (×10) + 3 circles (×1) = 7123
-function isDigitCompositionPuzzle(data: PatternPuzzleExercise): boolean {
-  if (!data.shapes || data.shapes.length < 2) return false
-  if (!data.groups || data.groups.length !== 1) return false
-  const placeValues = new Set([1, 10, 100, 1000, 10000])
-  // All shapes must have place-value values
-  const allPlaceValues = data.shapes.every((s) => placeValues.has(s.value))
-  if (!allPlaceValues) return false
-  // Shape values must be unique (each shape = one place value)
-  const uniqueValues = new Set(data.shapes.map((s) => s.value))
-  return uniqueValues.size === data.shapes.length
-}
-
-function PatternPuzzleView({ data, onComplete, quizMode = false }: { data: PatternPuzzleExercise } & SubProps) {
-  const [shapeAnswers, setShapeAnswers] = useState<Record<string, string>>(
-    Object.fromEntries(data.shapes.map((s) => [s.name, '']))
-  )
-  const [groupAnswers, setGroupAnswers] = useState<Record<number, string>>(
-    Object.fromEntries(
-      data.groups
-        .filter((g) => !g.is_known)
-        .map((_, i) => [i, ''])
-    )
-  )
+// ── Cloze (invulzin) ─────────────────────────────────────────
+function ClozeView({ data, onComplete, quizMode = false }: { data: ClozeExercise } & SubProps) {
+  const hasOptions = data.options && data.options.length > 0
+  const [textAnswer, setTextAnswer] = useState('')
+  const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [checked, setChecked] = useState(false)
+  const [showHint, setShowHint] = useState(false)
 
-  const isShapeCorrect = (name: string) =>
-    parseInt(shapeAnswers[name]) ===
-    data.shapes.find((s) => s.name === name)?.value
+  const userAnswer = hasOptions
+    ? (selectedOption !== null ? data.options![selectedOption] : '')
+    : textAnswer.trim()
 
-  const isGroupCorrect = (groupIdx: number) => {
-    const group = data.groups[groupIdx]
-    if (group.is_known) return true
-    return parseInt(groupAnswers[groupIdx]) === group.total
-  }
-
-  const allCorrect =
-    data.shapes.every((s) => isShapeCorrect(s.name)) &&
-    data.groups.every((_, i) => isGroupCorrect(i))
+  const isCorrect = userAnswer.toLowerCase() === data.answer.toLowerCase()
 
   const reset = () => {
-    setShapeAnswers(Object.fromEntries(data.shapes.map((s) => [s.name, ''])))
-    setGroupAnswers(
-      Object.fromEntries(data.groups.filter((g) => !g.is_known).map((_, i) => [i, '']))
-    )
+    setTextAnswer('')
+    setSelectedOption(null)
     setChecked(false)
+    setShowHint(false)
+  }
+
+  // Render zin met het woord benadrukt na checking
+  const renderSentence = (withAnswer: boolean) => {
+    const parts = data.sentence_with_blank.split('___')
+    if (parts.length !== 2) return <span>{data.sentence_with_blank}</span>
+    return (
+      <span>
+        {parts[0]}
+        {withAnswer ? (
+          <span className={clsx(
+            'font-bold px-1 rounded',
+            isCorrect ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'
+          )}>
+            {userAnswer || '___'}
+          </span>
+        ) : (
+          <span className="inline-block border-b-2 border-gray-400 min-w-16 mx-1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        )}
+        {parts[1]}
+      </span>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Shape value legend */}
-      <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200">
-        <p className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">📊 Wat zijn de vormen waard?</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {data.shapes.map((shape) => (
-            <div key={shape.name} className="flex flex-col items-center gap-2 p-3 bg-white rounded-lg border border-gray-200">
-              <ShapeVisualizer shape={shape.name} size={56} color="#A81D7B" filled />
-              <span className="text-xs text-gray-500 font-semibold">= ?</span>
-              <input
-                type="number"
-                value={shapeAnswers[shape.name]}
-                onChange={(e) => {
-                  setShapeAnswers((a) => ({ ...a, [shape.name]: e.target.value }))
-                  setChecked(false)
-                }}
-                inputMode="numeric"
+    <div className="flex flex-col gap-6">
+      {/* De zin */}
+      <div className="py-8 px-8 bg-white rounded-2xl border-2 border-gray-200 shadow-sm text-center">
+        <p className="text-2xl font-medium text-gray-800 leading-relaxed">
+          {checked ? renderSentence(true) : renderSentence(false)}
+        </p>
+      </div>
+
+      {/* Definitie-hint toggle */}
+      <button
+        onClick={() => setShowHint(!showHint)}
+        className="flex items-center gap-2 text-sm text-zwijsen-primary-600 hover:text-zwijsen-primary-800 font-semibold self-start"
+      >
+        {showHint ? <EyeOff size={16} /> : <Eye size={16} />}
+        {showHint ? 'Hint verbergen' : 'Hint tonen (definitie)'}
+      </button>
+      {showHint && (
+        <div className="px-5 py-4 bg-zwijsen-primary-50 border border-zwijsen-primary-200 rounded-xl text-sm text-zwijsen-primary-800">
+          <span className="font-bold uppercase tracking-wide text-xs text-zwijsen-primary-500">Definitie: </span>
+          <span>{data.definition}</span>
+        </div>
+      )}
+
+      {/* Invoer */}
+      {hasOptions ? (
+        /* Multiple-choice variant */
+        <div className="grid grid-cols-2 gap-3">
+          {data.options!.map((option, i) => {
+            const isSelected = selectedOption === i
+            const isThisCorrect = option.toLowerCase() === data.answer.toLowerCase()
+            return (
+              <button
+                key={i}
+                onClick={() => { if (!checked) setSelectedOption(i) }}
+                disabled={checked}
                 className={clsx(
-                  'w-16 px-2 py-1 text-center border-2 rounded-lg font-bold text-lg',
-                  checked &&
-                    (isShapeCorrect(shape.name)
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-red-500 bg-red-50')
+                  'px-4 py-3 rounded-xl border-2 font-medium text-base transition-all duration-200 text-left',
+                  !isSelected && !checked && 'bg-white border-gray-200 hover:border-zwijsen-primary-300 hover:bg-zwijsen-primary-50',
+                  isSelected && !checked && 'bg-zwijsen-primary-50 border-zwijsen-primary-400 font-bold text-zwijsen-primary-700',
+                  checked && isThisCorrect && 'bg-green-50 border-green-500 text-green-800 font-bold',
+                  checked && isSelected && !isThisCorrect && 'bg-red-50 border-red-500 text-red-800 font-bold',
+                  checked && !isSelected && !isThisCorrect && 'bg-gray-50 border-gray-200 text-gray-400',
                 )}
-                placeholder="?"
-                aria-label={`Waarde van ${shape.name}`}
-              />
-            </div>
-          ))}
+              >
+                {option}
+              </button>
+            )
+          })}
         </div>
-      </div>
-
-      {/* Group boxes - like original workbook layout */}
-      <div>
-        <p className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">📦 Groepen telstallen</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {data.groups.map((group, i) => (
-            <div key={i} className="bg-white rounded-xl p-6 border-2 border-gray-200 hover:shadow-lg transition-shadow">
-              {/* Shapes display - scattered like original */}
-              <div className="bg-gradient-to-br from-gray-50 to-white rounded-lg p-4 mb-4 min-h-24 flex flex-wrap gap-3 justify-center items-center">
-                {Object.entries(group.counts).map(([shape, count]) =>
-                  Array(count)
-                    .fill(null)
-                    .map((_, j) => (
-                      <div key={`${shape}-${j}`} className="transform transition-transform hover:scale-125">
-                        <ShapeVisualizer
-                          shape={shape}
-                          size={40}
-                          color="#A81D7B"
-                          filled
-                        />
-                      </div>
-                    ))
-                )}
-              </div>
-
-              {/* Total input */}
-              <div className="flex items-center justify-center gap-3 text-lg font-bold">
-                <span className="text-gray-600">=</span>
-                {group.is_known ? (
-                  <div className="px-6 py-3 bg-zwijsen-primary-100 text-zwijsen-primary-700 font-bold text-2xl rounded-lg border-2 border-zwijsen-primary-300">
-                    {group.total}
-                  </div>
-                ) : (
-                  <input
-                    type="number"
-                    value={groupAnswers[i] ?? ''}
-                    onChange={(e) => {
-                      setGroupAnswers((a) => ({ ...a, [i]: e.target.value }))
-                      setChecked(false)
-                    }}
-                    inputMode="numeric"
-                    className={clsx(
-                      'w-20 px-4 py-3 text-center border-2 rounded-lg font-bold text-2xl',
-                      checked &&
-                        (isGroupCorrect(i)
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-red-500 bg-red-50')
-                    )}
-                    placeholder="?"
-                    aria-label={`Antwoord voor groep ${i + 1}`}
-                  />
-                )}
-              </div>
-            </div>
-          ))}
+      ) : (
+        /* Vrij invoer */
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-gray-600">Jouw antwoord:</label>
+          <input
+            type="text"
+            value={textAnswer}
+            onChange={(e) => { setTextAnswer(e.target.value); setChecked(false) }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && textAnswer.trim()) { setChecked(true); onComplete?.(isCorrect) } }}
+            disabled={checked}
+            className={clsx(
+              'px-5 py-4 rounded-xl border-2 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-zwijsen-primary-500 transition-colors',
+              !checked && 'border-gray-300 bg-white',
+              checked && isCorrect && 'border-green-500 bg-green-50 text-green-800',
+              checked && !isCorrect && 'border-red-500 bg-red-50 text-red-800',
+            )}
+            placeholder="Typ het woord..."
+          />
         </div>
-      </div>
+      )}
 
-      {/* Feedback message */}
+      {/* Feedback */}
       {checked && (
         <div className={clsx(
-          'flex items-center gap-3 px-6 py-4 rounded-xl text-base font-bold transition-all duration-300',
-          allCorrect
-            ? 'bg-green-100 text-green-800 border-2 border-green-300'
-            : 'bg-red-100 text-red-800 border-2 border-red-300'
+          'flex items-center gap-4 px-6 py-4 rounded-2xl font-bold border-2',
+          isCorrect ? 'bg-green-50 text-green-800 border-green-300' : 'bg-red-50 text-red-800 border-red-300'
         )}>
-          {allCorrect ? (
+          {isCorrect ? (
             <>
-              <CheckCircle size={24} className="flex-shrink-0" />
-              <span>Perfect! Je hebt alles correct opgelost! 🎉</span>
+              <CheckCircle size={24} className="flex-shrink-0 text-green-600" />
+              <div>
+                <p className="font-bold">Helemaal goed! 🎉</p>
+                <p className="text-sm font-medium opacity-80">Het woord "{data.answer}" past perfect in de zin.</p>
+              </div>
             </>
           ) : (
             <>
-              <XCircle size={24} className="flex-shrink-0" />
-              <span>Bijna! Controleer je antwoorden en probeer opnieuw.</span>
+              <XCircle size={24} className="flex-shrink-0 text-red-600" />
+              <div>
+                <p className="font-bold">Niet helemaal.</p>
+                <p className="text-sm font-medium opacity-80">
+                  Het juiste woord was: <em>"{data.answer}"</em>
+                </p>
+              </div>
             </>
           )}
         </div>
       )}
 
-      {/* Action buttons */}
-      <div className="flex gap-3">
+      {/* Knoppen */}
+      <div className="flex gap-3 mt-2">
         <button
-          onClick={() => { setChecked(true); onComplete?.(allCorrect) }}
-          className="btn-primary flex-1 py-3 px-6 text-base font-bold"
-          aria-label="Controleer je antwoorden"
+          onClick={() => { setChecked(true); onComplete?.(isCorrect) }}
+          disabled={!userAnswer || checked}
+          className="btn-primary flex-1 md:flex-none py-4 px-8 text-base font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
-          Controleren
+          ✓ Controleren
         </button>
         {!quizMode && (
           <button
             onClick={reset}
-            className="btn-secondary py-3 px-6 flex items-center justify-center gap-2 font-bold"
-            aria-label="Zet alles leeg"
+            className="btn-secondary py-4 px-6 flex items-center justify-center gap-2 font-bold"
           >
-            <RotateCcw size={20} /> Opnieuw
+            <RotateCcw size={18} /> Opnieuw
           </button>
         )}
       </div>
-    </div>
-  )
-}
-
-// ── Digit Composition Puzzle (Place Value with Shapes) ──────
-// Specialized view for puzzles like Opdracht 7 where:
-//  - triangle = 1000 (duizendtallen)
-//  - heart    = 100  (honderdtallen)
-//  - square   = 10   (tientallen)
-//  - circle   = 1    (eenheden)
-// Layout mimics original Zwijsen workbook: legend on left, groups on right
-function DigitCompositionView({ data, onComplete, quizMode = false }: { data: PatternPuzzleExercise } & SubProps) {
-  // Sort shapes by place value DESC (thousands first)
-  const sortedShapes = [...data.shapes].sort((a, b) => b.value - a.value)
-
-  return (
-    <div className="space-y-6">
-      {/* Legend */}
-      <div className="bg-white rounded-xl p-6 border-2 border-gray-200">
-        <p className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">Welk symbool welke waarde?</p>
-        <div className="grid grid-cols-2 gap-4 max-w-xs">
-          {sortedShapes.map((shape) => (
-            <div key={shape.name} className="flex items-center gap-3">
-              <ShapeVisualizer shape={shape.name} size={32} color="#A81D7B" filled />
-              <span className="text-sm font-bold text-gray-700">=</span>
-              <span className="text-lg font-bold text-zwijsen-primary-600">{shape.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Groups */}
-      <div className="space-y-6">
-        {data.groups.map((group, groupIdx) => (
-          <GroupRow key={groupIdx} group={group} groupIdx={groupIdx} shapes={sortedShapes} onComplete={onComplete} quizMode={quizMode} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-interface GroupRowProps extends SubProps {
-  group: ShapeGroup
-  groupIdx: number
-  shapes: ShapeDefinition[]
-}
-
-function GroupRow({ group, groupIdx, shapes, onComplete, quizMode = false }: GroupRowProps) {
-  // Calculate the correct total LOCALLY from counts × values
-  const calculatedTotal = shapes.reduce((sum, shape) => {
-    const count = group.counts[shape.name] || 0
-    return sum + count * shape.value
-  }, 0)
-
-  const [answer, setAnswer] = useState('')
-  const [checked, setChecked] = useState(false)
-
-  const isCorrect = parseInt(answer) === calculatedTotal
-
-  const reset = () => {
-    setAnswer('')
-    setChecked(false)
-  }
-
-  return (
-    <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
-      <div className="flex gap-6 items-start">
-        {/* Shapes - scattered like original workbook */}
-        <div className="flex-1 bg-gradient-to-br from-gray-50 to-white rounded-lg p-6 min-h-32 flex flex-wrap gap-3 content-start">
-          {shapes.map((shape) => {
-            const count = group.counts[shape.name] || 0
-            return Array(count)
-              .fill(null)
-              .map((_, j) => (
-                <div
-                  key={`${shape.name}-${j}`}
-                  className="transform transition-transform duration-200 hover:scale-125"
-                >
-                  <ShapeVisualizer
-                    shape={shape.name}
-                    size={36}
-                    color="#A81D7B"
-                    filled
-                  />
-                </div>
-              ))
-          })}
-        </div>
-
-        {/* Total */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-2xl font-bold text-gray-600">=</span>
-          {group.is_known ? (
-            <div className="px-6 py-3 bg-zwijsen-primary-100 text-zwijsen-primary-700 font-bold text-2xl rounded-lg border-2 border-zwijsen-primary-300 min-w-20 text-center">
-              {calculatedTotal}
-            </div>
-          ) : (
-            <input
-              type="number"
-              value={answer}
-              onChange={(e) => {
-                setAnswer(e.target.value)
-                setChecked(false)
-              }}
-              inputMode="numeric"
-              className={clsx(
-                'w-20 px-3 py-2 text-center border-2 rounded-lg font-bold text-xl',
-                'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zwijsen-primary-500',
-                !checked && 'border-gray-400 bg-white',
-                checked &&
-                  (isCorrect
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-red-500 bg-red-50 text-red-700 shake')
-              )}
-              placeholder="?"
-              aria-label={`Antwoord groep ${groupIdx + 1}`}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Feedback for unknown groups */}
-      {!group.is_known && checked && (
-        <div
-          className={clsx(
-            'mt-4 flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold',
-            isCorrect
-              ? 'bg-green-100 text-green-800 border border-green-300'
-              : 'bg-red-100 text-red-800 border border-red-300'
-          )}
-        >
-          {isCorrect ? (
-            <>
-              <CheckCircle size={18} className="flex-shrink-0" />
-              <span>Goed! Het getal is {calculatedTotal}.</span>
-            </>
-          ) : (
-            <>
-              <XCircle size={18} className="flex-shrink-0" />
-              <span>Niet helemaal. Probeer opnieuw.</span>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Buttons for unknown groups */}
-      {!group.is_known && (
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={() => { setChecked(true); onComplete?.(isCorrect) }}
-            disabled={!answer}
-            className="btn-primary text-sm py-2 px-4"
-            aria-label={`Controleer groep ${groupIdx + 1}`}
-          >
-            Controleren
-          </button>
-          {!quizMode && (
-            <button
-              onClick={reset}
-              className="btn-secondary text-sm py-2 px-3 flex items-center gap-1"
-              aria-label={`Reset groep ${groupIdx + 1}`}
-            >
-              <RotateCcw size={14} />
-            </button>
-          )}
-        </div>
-      )}
     </div>
   )
 }

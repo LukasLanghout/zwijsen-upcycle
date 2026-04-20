@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { extractAndTransformPage } from '@/lib/groq'
-import { normalizePatternPuzzle } from '@/lib/normalize-puzzle'
+
+// Allow up to 20MB per batch request (5 JPEG pages at scale 1.5 ≈ 5-10MB)
+export const maxDuration = 300
 
 // Group exercises by parent number and reassign sub-exercise letters sequentially
 function normalizeSubExercises(exercises: any[]): any[] {
@@ -95,9 +97,6 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Normalize pattern puzzle totals to ensure they match counts × values
-        const normalizedContent = normalizePatternPuzzle(exercise.transformed_content)
-
         exercisesToInsert.push({
           pdf_upload_id: uploadId,
           page_number: pageNum,
@@ -107,11 +106,11 @@ export async function POST(req: NextRequest) {
           block: result.block,
           lesson: result.lesson,
           question_type: exercise.question_type,
-          difficulty_level: exercise.transformed_content?.difficulty_level ?? 1,
-          topic: subject || 'Rekenen',
+          difficulty_level: exercise.transformed_content?.difficulty_level ?? 2,
+          topic: subject || 'Taal',
           learning_goal: result.learning_goal,
           original_content: exercise,
-          transformed_content: normalizedContent ?? null,
+          transformed_content: exercise.transformed_content ?? null,
           status: 'pending',
         })
       }

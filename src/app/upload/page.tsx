@@ -9,8 +9,12 @@ import { SUBJECTS, GRADES } from '@/lib/types'
 
 type Step = 'metadata' | 'upload' | 'processing'
 
-// Convert each PDF page to a base64 PNG using pdf.js in the browser
-async function pdfToPageImages(file: File): Promise<Array<{ pageNum: number; base64: string }>> {
+// Convert each PDF page to a base64 JPEG using pdf.js in the browser.
+// Scale 1.5 + JPEG 0.82 keeps text legible for the AI while being ~85% smaller than scale-2 PNG.
+async function pdfToPageImages(
+  file: File,
+  onProgress?: (current: number, total: number) => void
+): Promise<Array<{ pageNum: number; base64: string }>> {
   const pdfjsLib = await import('pdfjs-dist')
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
@@ -19,8 +23,9 @@ async function pdfToPageImages(file: File): Promise<Array<{ pageNum: number; bas
   const images: Array<{ pageNum: number; base64: string }> = []
 
   for (let i = 1; i <= pdf.numPages; i++) {
+    onProgress?.(i, pdf.numPages)
     const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 2.0 })
+    const viewport = page.getViewport({ scale: 1.5 })
 
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
@@ -29,11 +34,19 @@ async function pdfToPageImages(file: File): Promise<Array<{ pageNum: number; bas
 
     await page.render({ canvasContext: ctx, viewport }).promise
 
-    const base64 = canvas.toDataURL('image/png').split(',')[1]
+    // JPEG is ~85% smaller than PNG; 0.82 quality keeps text sharp enough for AI
+    const base64 = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
     images.push({ pageNum: i, base64 })
   }
 
   return images
+}
+
+// Split an array into chunks of size n
+function chunk<T>(arr: T[], n: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += n) chunks.push(arr.slice(i, i + n))
+  return chunks
 }
 
 export default function UploadPage() {
@@ -88,21 +101,26 @@ export default function UploadPage() {
 
       const { uploadId } = await uploadRes.json()
 
-      // Step 2: Convert PDF pages to images in the browser
-      setUploadStep('PDF pagina\'s verwerken...')
-      const pageImages = await pdfToPageImages(file)
-
-      // Step 3: Send images to the extraction API
-      setUploadStep('AI extraheert oefeningen en subopdrachten...')
-      const extractRes = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uploadId, pageImages }),
+      // Step 2: Convert PDF pages to images in the browser (with progress)
+      const pageImages = await pdfToPageImages(file, (current, total) => {
+        setUploadStep(`Pagina ${current} van ${total} verwerken...`)
       })
 
-      if (!extractRes.ok) {
-        const data = await extractRes.json()
-        throw new Error(data.error || 'Extractie mislukt')
+      // Step 3: Send images in batches of 5 pages to stay well under request size limits
+      const batches = chunk(pageImages, 5)
+      for (let i = 0; i < batches.length; i++) {
+        setUploadStep(`AI analyseert pagina's ${i * 5 + 1}–${Math.min((i + 1) * 5, pageImages.length)} van ${pageImages.length}...`)
+
+        const extractRes = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uploadId, pageImages: batches[i] }),
+        })
+
+        if (!extractRes.ok) {
+          const data = await extractRes.json()
+          throw new Error(data.error || 'Extractie mislukt')
+        }
       }
 
       router.push(`/review/${uploadId}`)

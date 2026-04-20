@@ -11,10 +11,9 @@ import type { Exercise, ExerciseStatus, QuestionType } from '@/lib/types'
 import clsx from 'clsx'
 
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
-  fill_in: 'Invulvraag',
-  structured_hte: 'H-T-E Structuur',
-  creative: 'Creatief',
-  pattern_puzzle: 'Patroonpuzzel',
+  flashcard: 'Woordkaart',
+  multiple_choice: 'Meerkeuzevraag',
+  cloze: 'Invulzin',
 }
 
 type UploadInfo = {
@@ -355,12 +354,6 @@ function ExerciseReviewCard({
         {exercise.original_content?.instruction}
       </div>
 
-      {exercise.original_content?.given_numbers && (
-        <div className="text-sm text-gray-600 mb-2">
-          <span className="font-medium">Getallen: </span>
-          {exercise.original_content.given_numbers.join(', ')}
-        </div>
-      )}
 
       {exercise.original_content?.raw_text && (
         <details className="mb-3">
@@ -392,10 +385,9 @@ function ExerciseReviewCard({
                 onChange={(e) => onEditValueChange('question_type', e.target.value)}
                 className="w-full border rounded-xl px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#A81D7B]"
               >
-                <option value="fill_in">Invulvraag</option>
-                <option value="structured_hte">H-T-E Structuur</option>
-                <option value="creative">Creatief</option>
-                <option value="pattern_puzzle">Patroonpuzzel</option>
+                <option value="flashcard">Woordkaart</option>
+                <option value="multiple_choice">Meerkeuzevraag</option>
+                <option value="cloze">Invulzin</option>
               </select>
             </div>
             <div>

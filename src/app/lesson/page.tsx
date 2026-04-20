@@ -12,10 +12,9 @@ import InteractiveExercise from '@/components/InteractiveExercise'
 import clsx from 'clsx'
 
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
-  fill_in: 'Invulvraag',
-  structured_hte: 'H-T-E Structuur',
-  creative: 'Creatief',
-  pattern_puzzle: 'Patroonpuzzel',
+  flashcard: 'Woordkaart',
+  multiple_choice: 'Meerkeuzevraag',
+  cloze: 'Invulzin',
 }
 
 interface ExerciseResult {

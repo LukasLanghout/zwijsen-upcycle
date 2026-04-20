@@ -8,10 +8,9 @@ import { SUBJECTS, GRADES } from '@/lib/types'
 import clsx from 'clsx'
 
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
-  fill_in: 'Invulvraag',
-  structured_hte: 'H-T-E Structuur',
-  creative: 'Creatief',
-  pattern_puzzle: 'Patroonpuzzel',
+  flashcard: 'Woordkaart',
+  multiple_choice: 'Meerkeuzevraag',
+  cloze: 'Invulzin',
 }
 
 export default function LibraryPage() {
@@ -148,10 +147,9 @@ export default function LibraryPage() {
             className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zwijsen-primary-500 focus:border-transparent transition-all font-medium"
           >
             <option value="">Alle typen</option>
-            <option value="fill_in">Invulvraag</option>
-            <option value="structured_hte">H-T-E Structuur</option>
-            <option value="creative">Creatief</option>
-            <option value="pattern_puzzle">Patroonpuzzel</option>
+            <option value="flashcard">Woordkaart</option>
+            <option value="multiple_choice">Meerkeuzevraag</option>
+            <option value="cloze">Invulzin</option>
           </select>
 
           {/* Difficulty filter */}
@@ -260,25 +258,29 @@ function ExerciseCard({ exercise }: { exercise: Exercise }) {
         {exercise.original_content?.instruction}
       </p>
 
-      {/* Numbers preview */}
-      {exercise.original_content?.given_numbers && exercise.original_content.given_numbers.length > 0 && (
+      {/* Word preview for vocabulary exercises */}
+      {exercise.transformed_content?.flashcard?.word && (
         <div className="mb-4">
-          <p className="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wide">Getallen</p>
-          <div className="flex gap-1.5 flex-wrap">
-            {exercise.original_content.given_numbers.slice(0, 5).map((n, i) => (
-              <span
-                key={i}
-                className="text-sm bg-gray-100 hover:bg-zwijsen-primary-50 text-gray-700 font-mono px-2.5 py-1.5 rounded-lg font-bold transition-colors"
-              >
-                {n}
-              </span>
-            ))}
-            {exercise.original_content.given_numbers.length > 5 && (
-              <span className="text-sm text-gray-400 px-2.5 py-1.5 font-semibold">
-                +{exercise.original_content.given_numbers.length - 5}
-              </span>
-            )}
-          </div>
+          <p className="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wide">Woord</p>
+          <span className="text-sm bg-zwijsen-primary-50 text-zwijsen-primary-700 px-3 py-1.5 rounded-lg font-bold">
+            {exercise.transformed_content.flashcard.word}
+          </span>
+        </div>
+      )}
+      {exercise.transformed_content?.multiple_choice?.word && (
+        <div className="mb-4">
+          <p className="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wide">Woord</p>
+          <span className="text-sm bg-zwijsen-primary-50 text-zwijsen-primary-700 px-3 py-1.5 rounded-lg font-bold">
+            {exercise.transformed_content.multiple_choice.word}
+          </span>
+        </div>
+      )}
+      {exercise.transformed_content?.cloze?.answer && (
+        <div className="mb-4">
+          <p className="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wide">Woord</p>
+          <span className="text-sm bg-zwijsen-primary-50 text-zwijsen-primary-700 px-3 py-1.5 rounded-lg font-bold">
+            {exercise.transformed_content.cloze.answer}
+          </span>
         </div>
       )}
 

@@ -1,8 +1,7 @@
 export type QuestionType =
-  | 'fill_in'        // 763 = ___ + ___ + ___
-  | 'structured_hte' // H-T-E box exercises
-  | 'creative'       // Make 3 different numbers with given digits
-  | 'pattern_puzzle' // Figure out shape values
+  | 'flashcard'        // Woord → definitie kaartje
+  | 'multiple_choice'  // Kies de juiste definitie (4 opties)
+  | 'cloze'            // Vul het ontbrekende woord in de zin in
 
 export type DifficultyLevel = 1 | 2 | 3
 
@@ -10,22 +9,18 @@ export type ExerciseStatus = 'pending' | 'approved' | 'rejected'
 
 export type UploadStatus = 'processing' | 'completed' | 'failed'
 
+export type WordType =
+  | 'zelfstandig_naamwoord'
+  | 'werkwoord'
+  | 'bijvoeglijk_naamwoord'
+  | 'uitdrukking'
+  | 'overig'
+
 // Raw extracted content from Groq
 export interface ExtractedExercise {
   exercise_number: string
   question_type: QuestionType
   instruction: string
-  // For fill_in / structured_hte
-  given_numbers?: number[]
-  answer_slots?: number
-  // For creative
-  available_digits?: number[]
-  num_combinations?: number
-  // For pattern_puzzle
-  shapes?: string[]
-  known_total?: number
-  // General
-  example_shown?: boolean
   raw_text: string
 }
 
@@ -42,10 +37,10 @@ export interface PDFUpload {
 
 // Subjects available for selection
 export const SUBJECTS = [
-  'Rekenen',
   'Taal',
   'Spelling',
   'Lezen',
+  'Rekenen',
   'Wereldorientatie',
   'Engels',
 ] as const
@@ -91,58 +86,36 @@ export interface TransformedExercise {
   question_type: QuestionType
   instruction: string
   difficulty_level: DifficultyLevel
-  // fill_in variant
-  fill_in?: FillInExercise
-  // structured_hte variant
-  structured_hte?: StructuredHTEExercise
-  // creative variant
-  creative?: CreativeExercise
-  // pattern_puzzle variant
-  pattern_puzzle?: PatternPuzzleExercise
+  flashcard?: FlashcardExercise | null
+  multiple_choice?: MultipleChoiceExercise | null
+  cloze?: ClozeExercise | null
 }
 
-export interface FillInExercise {
-  number: number
-  // e.g. [400, 90, 6] for 496
-  answer: number[]
-  // Labels like ['H', 'T', 'E'] or ['honderdtallen', 'tientallen', 'eenheden']
-  labels: string[]
+// Flashcard: toon het woord, student herinnert de definitie
+export interface FlashcardExercise {
+  word: string
+  word_type: WordType
+  definition: string
+  example_sentence: string
 }
 
-export interface StructuredHTEExercise {
-  mode: 'split' | 'combine'
-  // For split: provide a 3-digit number, student fills in H, T, E values
-  // For combine: provide H, T, E values, student writes the 3-digit number
-  numbers: HTENumber[]
+// Multiple choice: kies de juiste definitie uit 4 opties
+export interface MultipleChoiceExercise {
+  word: string
+  word_type: WordType
+  definition: string
+  example_sentence: string
+  options: string[]      // 4 opties (inclusief de juiste)
+  correct_index: number  // index van de juiste optie in options[]
 }
 
-export interface HTENumber {
-  H: number
-  T: number
-  E: number
-}
-
-export interface CreativeExercise {
-  digits: number[]
-  num_combinations: number
-  // Pre-generated valid combinations for answer checking
-  valid_combinations: HTENumber[]
-}
-
-export interface PatternPuzzleExercise {
-  shapes: ShapeDefinition[]
-  groups: ShapeGroup[]
-}
-
-export interface ShapeDefinition {
-  name: string  // 'circle', 'square', 'heart', 'triangle'
-  value: number
-}
-
-export interface ShapeGroup {
-  counts: Record<string, number>  // { circle: 3, square: 2, ... }
-  total: number
-  is_known: boolean  // true = shown to student, false = student must calculate
+// Cloze: vul het ontbrekende woord in de zin in
+export interface ClozeExercise {
+  sentence_with_blank: string  // Bijv. "De ___ brengt pakjes rond."
+  answer: string               // Het correcte woord
+  word_type: WordType
+  definition: string           // Hint: definitie van het woord
+  options?: string[]           // Optioneel: 4 keuzes voor multiple choice variant
 }
 
 export interface ExerciseVariant {

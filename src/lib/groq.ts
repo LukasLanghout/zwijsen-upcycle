@@ -3,154 +3,129 @@ import type { ExtractedExercise, TransformedExercise, DifficultyLevel } from './
 
 export const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
-// IMPROVED prompt focusing on ACCURATE pattern puzzle extraction
-const EXTRACT_AND_TRANSFORM_PROMPT = `You are an expert Dutch elementary school math workbook analyzer.
+const EXTRACT_AND_TRANSFORM_PROMPT = `Je bent een expert in het analyseren van Nederlandstalige taalwerkboeken van de serie "Taal Jacht" (Zwijsen uitgeverij).
 
-🎯 PRIMARY FOCUS: Accurately identify and extract PATTERN PUZZLES
-- These show shapes (hearts, stars, triangles, squares, etc.)
-- Students must count shapes and find their values
-- This is a TOP PRIORITY - extract them correctly!
+JOUW TAAK: Extraheer woordenschatoefeningen uit WOORDENLIJST-pagina's.
 
-⚠️ CRITICAL: DIGIT COMPOSITION PUZZLES (PLACE VALUE WITH SHAPES)
-================================================================
+━━━ EEN WOORDENLIJST-PAGINA HERKENNEN ━━━
+- Bovenaan staat "Les 1-2-3 | Woordenlijst"
+- Genummerde woordkaartjes (1, 2, 3...) met gekleurde headers
+- Elke kaart heeft: woord + definitie (in gekleurde balk) + voorbeeldzin
+- Secties: ZELFSTANDIGE NAAMWOORDEN / WERKWOORDEN / BIJVOEGLIJKE NAAMWOORDEN / UITDRUKKINGEN
+- Onderaan soms woordveld-schema's met semantische clusters
 
-This is a PLACE VALUE COMPOSITION exercise, NOT a pattern puzzle!
+━━━ VOOR ELKE WOORDKAART: MAAK 3 OEFENINGEN ━━━
 
-Example Visual:
-[7 triangles scattered] + [1 heart] + [2 squares] + [3 circles] = 7123
+OEFENING A — flashcard (question_type: "flashcard")
+Toont het woord, student herinnert de definitie.
+- exercise_number: "1a", "2a", etc.
 
-MEANING:
-- Count triangles = 7 → represents 7 in thousands place → 7000
-- Count hearts = 1 → represents 1 in hundreds place → 100
-- Count squares = 2 → represents 2 in tens place → 20
-- Count circles = 3 → represents 3 in ones place → 3
-- Total: 7000 + 100 + 20 + 3 = 7123
+OEFENING B — multiple_choice (question_type: "multiple_choice")
+Student kiest de juiste definitie uit 4 opties.
+- Verzin 3 plausibele maar foute definities (passen bij hetzelfde thema/woordsoort)
+- correct_index: de positie (0-3) van de juiste definitie in de options array
+- Shuffle de volgorde zodat correct_index niet altijd 0 is
+- exercise_number: "1b", "2b", etc.
 
-⚠️ SHAPE COUNTING IS CRITICAL - MUST BE EXACT!
-You MUST count every single shape in the image:
-- Count EVERY triangle individually (don't group them)
-- Count EVERY heart individually
-- Count EVERY square individually
-- Count EVERY circle individually
-- DO NOT estimate or approximate
+OEFENING C — cloze (question_type: "cloze")
+Student vult het ontbrekende woord in de voorbeeldzin.
+- Vervang het woord in de zin door ___ (gebruik exact drie underscores)
+- Als het woord meerdere keren voorkomt, vervang alleen de eerste keer
+- Geef 4 opties (options): het juiste woord + 3 andere woorden uit dezelfde woordenlijst
+- exercise_number: "1c", "2c", etc.
 
-EXAMPLE OF WRONG vs RIGHT:
-WRONG: "I see several triangles, maybe 3 or 4" → Leads to 3123 or 4123
-RIGHT: "I count 1, 2, 3, 4, 5, 6, 7 triangles" → 7 is correct
+━━━ WOORDSOORT-CODES ━━━
+- "zelfstandig_naamwoord" → ZELFSTANDIGE NAAMWOORDEN sectie (de/het woord)
+- "werkwoord" → WERKWOORDEN sectie
+- "bijvoeglijk_naamwoord" → BIJVOEGLIJKE NAAMWOORDEN sectie
+- "uitdrukking" → UITDRUKKINGEN sectie
+- "overig" → overige woorden
 
-For Opdracht 7 specifically:
-- Look carefully at ALL triangles scattered in the image
-- Count each one: 1, 2, 3, 4, 5, 6, 7
-- Look carefully at hearts: should be 1
-- Look carefully at squares: should be 2
-- Look carefully at circles: should be 3
-- Total should ALWAYS be 7123
+━━━ MOEILIJKHEIDSGRAAD ━━━
+Bepaal difficulty_level op basis van de groep/blok als die bekend is:
+- Groep 3-4: difficulty_level 1
+- Groep 5-6: difficulty_level 2
+- Groep 7-8: difficulty_level 3
 
-EXTRACT STRUCTURE (as pattern_puzzle with fixed place-value):
+━━━ GEEN WOORDENLIJST-PAGINA? ━━━
+Als de pagina GEEN woordenlijst is (bijv. Roadmap, Rubric, les-oefeningen, omslagpagina):
+- Geef een lege exercises array terug
+- Stel block en lesson in op wat je kunt zien
+
+━━━ RETURN ALLEEN GELDIGE JSON ━━━
 {
-  "question_type": "pattern_puzzle",
-  "instruction": "Wat is het getal?",
-  "pattern_puzzle": {
-    "shapes": [
-      {"name": "triangle", "value": 1000},
-      {"name": "heart", "value": 100},
-      {"name": "square", "value": 10},
-      {"name": "circle", "value": 1}
-    ],
-    "groups": [
-      {
-        "counts": {
-          "triangle": 7,
-          "heart": 1,
-          "square": 2,
-          "circle": 3
-        },
-        "total": 7123,
-        "is_known": true
-      }
-    ]
-  }
-}
-======================================
-
-When you see a pattern puzzle exercise:
-1. COUNT every individual shape carefully
-2. Use ONLY these shape names:
-   ✓ heart, star, triangle, square, circle, diamond, pentagon, hexagon
-   ✗ Never use: hart, ster, driehoek, vierkant, etc. (English only!)
-
-3. For EACH visible group:
-   - List the shapes: e.g., "3 hearts, 2 triangles"
-   - Check if there's a number at the end (known total)
-   - If no number, it's unknown (student must solve)
-
-4. Create the JSON structure:
-   {
-     "shapes": [
-       {"name": "heart", "value": 2},
-       {"name": "triangle", "value": 3},
-       {"name": "square", "value": 5}
-     ],
-     "groups": [
-       {"counts": {"heart": 3, "triangle": 2}, "total": 16, "is_known": true},
-       {"counts": {"heart": 2, "square": 3}, "total": 19, "is_known": true},
-       {"counts": {"heart": 1, "square": 4}, "total": null, "is_known": false}
-     ]
-   }
-
-⚠️ CRITICAL RULES:
-- Count EVERY shape individually (not combinations)
-- "counts" object must have exact shape counts
-- Only use English shape names (heart, not hart)
-- "is_known": true ONLY if a number appears
-- If no number appears, use "is_known": false and "total": null
-
-GENERAL EXERCISE DETECTION:
-============================
-
-Other exercise types:
-- fill_in: "Vul in" exercises with one number to split
-- structured_hte: H-T-E (Hundreds-Tens-Ones) exercises
-- creative: Build numbers from given digits
-- pattern_puzzle: Shape counting (see above)
-
-For each exercise, provide:
-- exercise_number: "1a", "2b", etc. (include letter!)
-- question_type: "fill_in" | "structured_hte" | "creative" | "pattern_puzzle"
-- instruction: exact instruction text
-- transformed_content: properly structured data
-
-RETURN ONLY VALID JSON with this structure:
-{
-  "block": "1",
-  "lesson": "1",
-  "learning_goal": "...",
+  "block": "6",
+  "lesson": "1-2-3",
+  "learning_goal": "Leerlingen kennen de betekenis van de woordenschatwoorden uit blok 6.",
   "exercises": [
     {
-      "exercise_number": "7a",
-      "parent_exercise_number": "7",
+      "exercise_number": "1a",
+      "parent_exercise_number": "1",
       "sub_exercise_letter": "a",
-      "question_type": "pattern_puzzle",
-      "instruction": "Wat zijn de figuren waard?",
-      "raw_text": "...",
+      "question_type": "flashcard",
+      "instruction": "Wat betekent dit woord?",
+      "raw_text": "de compositie: een opbouw van verschillende delen tot één geheel. Dit schilderij heeft een goede compositie.",
       "transformed_content": {
-        "question_type": "pattern_puzzle",
-        "instruction": "Wat zijn de figuren waard?",
+        "question_type": "flashcard",
+        "instruction": "Wat betekent dit woord?",
         "difficulty_level": 2,
-        "fill_in": null,
-        "structured_hte": null,
-        "creative": null,
-        "pattern_puzzle": {
-          "shapes": [
-            {"name": "heart", "value": null},
-            {"name": "triangle", "value": null},
-            {"name": "square", "value": null}
+        "flashcard": {
+          "word": "de compositie",
+          "word_type": "zelfstandig_naamwoord",
+          "definition": "een opbouw van verschillende delen tot één geheel",
+          "example_sentence": "Dit schilderij heeft een goede compositie."
+        },
+        "multiple_choice": null,
+        "cloze": null
+      }
+    },
+    {
+      "exercise_number": "1b",
+      "parent_exercise_number": "1",
+      "sub_exercise_letter": "b",
+      "question_type": "multiple_choice",
+      "instruction": "Welke definitie past bij dit woord?",
+      "raw_text": "de compositie",
+      "transformed_content": {
+        "question_type": "multiple_choice",
+        "instruction": "Welke definitie past bij 'de compositie'?",
+        "difficulty_level": 2,
+        "flashcard": null,
+        "multiple_choice": {
+          "word": "de compositie",
+          "word_type": "zelfstandig_naamwoord",
+          "definition": "een opbouw van verschillende delen tot één geheel",
+          "example_sentence": "Dit schilderij heeft een goede compositie.",
+          "options": [
+            "een manier om iets mooi te versieren",
+            "een opbouw van verschillende delen tot één geheel",
+            "een soort muziekinstrument",
+            "de kleur van een kunstwerk"
           ],
-          "groups": [
-            {"counts": {"heart": 3, "triangle": 2}, "total": 16, "is_known": true},
-            {"counts": {"heart": 2, "square": 3}, "total": 19, "is_known": true},
-            {"counts": {"heart": 1, "square": 4}, "total": null, "is_known": false}
-          ]
+          "correct_index": 1
+        },
+        "cloze": null
+      }
+    },
+    {
+      "exercise_number": "1c",
+      "parent_exercise_number": "1",
+      "sub_exercise_letter": "c",
+      "question_type": "cloze",
+      "instruction": "Vul het ontbrekende woord in.",
+      "raw_text": "Dit schilderij heeft een goede compositie.",
+      "transformed_content": {
+        "question_type": "cloze",
+        "instruction": "Vul het ontbrekende woord in.",
+        "difficulty_level": 2,
+        "flashcard": null,
+        "multiple_choice": null,
+        "cloze": {
+          "sentence_with_blank": "Dit schilderij heeft een goede ___.",
+          "answer": "compositie",
+          "word_type": "zelfstandig_naamwoord",
+          "definition": "een opbouw van verschillende delen tot één geheel",
+          "options": ["compositie", "melodie", "tekening", "schildering"]
         }
       }
     }
@@ -173,7 +148,7 @@ export async function extractAndTransformPage(
   >
 }> {
   const contextPreamble = context?.subject || context?.grade
-    ? `\n\nCONTEXT: This page is from a ${context?.subject ?? 'Rekenen'} workbook for ${context?.grade ?? 'Dutch primary school'}. Use this to inform interpretation when ambiguous.\n`
+    ? `\n\nCONTEXT: Deze pagina komt uit een ${context?.subject ?? 'Taal'} werkboek voor ${context?.grade ?? 'Nederlandse basisschool'}. Gebruik dit bij twijfel.\n`
     : ''
 
   const response = await groq.chat.completions.create({
@@ -192,51 +167,35 @@ export async function extractAndTransformPage(
   })
 
   const content = response.choices[0]?.message?.content
-  if (!content) throw new Error('No response from Groq')
+  if (!content) throw new Error('Geen respons van Groq')
   return JSON.parse(content)
-}
-
-// Keep these for backwards compatibility
-export async function extractExercisesFromImage(base64Image: string) {
-  return extractAndTransformPage(base64Image)
-}
-
-export async function transformExercise(extracted: ExtractedExercise): Promise<TransformedExercise> {
-  return (extracted as any).transformed_content
 }
 
 export async function generateVariant(
   exercise: TransformedExercise,
   targetDifficulty: DifficultyLevel
 ): Promise<TransformedExercise> {
-  const numberRange =
+  const difficultyHint =
     targetDifficulty === 1
-      ? 'between 100 and 499'
+      ? 'gebruik simpelere, kortere woorden en eenvoudige zinnen (Groep 3-4 niveau)'
       : targetDifficulty === 2
-        ? 'between 500 and 799'
-        : 'between 800 and 999'
+        ? 'gebruik woorden van gemiddeld niveau (Groep 5-6 niveau)'
+        : 'gebruik uitdagende, complexere woorden (Groep 7-8 niveau)'
 
-  const prompt = `Generate a new variant of this Dutch math exercise with different numbers.
+  const prompt = `Genereer een nieuwe variant van deze Nederlandse taaloefening op een ander moeilijkheidsniveau.
 
-Original exercise: ${JSON.stringify(exercise, null, 2)}
+Originele oefening: ${JSON.stringify(exercise, null, 2)}
 
-Rules:
-- Keep the EXACT same question_type, instruction, and structure
-- Replace all numbers with new random numbers ${numberRange}
-- For structured_hte: generate new valid 3-digit numbers
-- For fill_in: generate a new valid 3-digit number and its correct components
-- For creative: keep the same number of digits but use different digit values
-- For pattern_puzzle:
-  * Keep the same shape names and groups structure
-  * Assign new random values to each shape (values must be 1-50 and different from each other)
-  * Recalculate all group totals based on the new shape values
-  * For groups marked as "is_known: true", keep them known with the recalculated total
-  * For groups marked as "is_known: false", keep them as unknown (student must calculate)
-  * Ensure all totals are solvable and mathematically correct
-- Set difficulty_level to ${targetDifficulty}
-- All numbers must be mathematically correct
+Regels:
+- Behoud EXACT hetzelfde question_type en dezelfde structuur
+- Verander het woord naar een ander woord van hetzelfde woordsoort en thema
+- ${difficultyHint}
+- Stel difficulty_level in op ${targetDifficulty}
+- Zorg dat de definitie, voorbeeldzin en opties kloppen bij het nieuwe woord
+- Voor multiple_choice: genereer nieuwe plausibele maar foute opties
+- Voor cloze: pas de zin aan voor het nieuwe woord
 
-Return ONLY valid JSON with the same structure as the original.`
+Return ONLY valid JSON met dezelfde structuur als het origineel.`
 
   const response = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
@@ -246,7 +205,12 @@ Return ONLY valid JSON with the same structure as the original.`
   })
 
   const content = response.choices[0]?.message?.content
-  if (!content) throw new Error('No response from Groq')
+  if (!content) throw new Error('Geen respons van Groq')
 
   return JSON.parse(content)
+}
+
+// Backwards-compatibility export
+export async function extractExercisesFromImage(base64Image: string) {
+  return extractAndTransformPage(base64Image)
 }
