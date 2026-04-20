@@ -6,7 +6,6 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, FileText, Loader2, AlertCircle, BookOpen, GraduationCap, ArrowRight, ArrowLeft, Check } from 'lucide-react'
 import clsx from 'clsx'
 import { SUBJECTS, GRADES } from '@/lib/types'
-import { supabase, STORAGE_BUCKET } from '@/lib/supabase'
 
 type Step = 'metadata' | 'upload' | 'processing'
 
@@ -92,14 +91,17 @@ export default function UploadPage() {
         const data = await safeJson(metaRes)
         throw new Error(data?.error || 'Registreren mislukt')
       }
-      const { uploadId, storagePath, token } = await metaRes.json()
+      const { uploadId, signedUrl } = await metaRes.json()
 
-      // Step 2: Upload PDF directly from browser to Supabase Storage (bypasses server size limits)
+      // Step 2: Upload PDF directly from browser to Supabase Storage via the signed URL.
+      // Uses a plain fetch PUT — no Supabase SDK needed, so no NEXT_PUBLIC_ keys required.
       setUploadStep('PDF uploaden naar opslag...')
-      const { error: storageError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .uploadToSignedUrl(storagePath, token, file, { contentType: 'application/pdf' })
-      if (storageError) throw new Error(`Opslag mislukt: ${storageError.message}`)
+      const storageRes = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/pdf' },
+        body: file,
+      })
+      if (!storageRes.ok) throw new Error(`Opslag mislukt: ${storageRes.status}`)
 
       // Step 3: Convert PDF pages to JPEG images in the browser
       const pageImages = await pdfToPageImages(file, (current, total) => {
